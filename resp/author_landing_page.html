@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Name - Author</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            overflow-x: hidden;
+            padding: 1rem 0;
+        }
+
+        .main-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 3rem;
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .avatar {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+            font-weight: 300;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 2.5rem);
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+            color: #2d3748;
+            letter-spacing: -0.02em;
+        }
+
+        .tagline {
+            color: #4a5568;
+            font-size: clamp(1rem, 3vw, 1.1rem);
+            margin-bottom: 2.5rem;
+            font-weight: 400;
+        }
+
+        .section-title {
+            font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #718096;
+            margin-bottom: 1.2rem;
+            font-weight: 600;
+        }
+
+        /* Books Gallery Section */
+        .books-section {
+            margin-bottom: 3rem;
+        }
+
+        .books-gallery {
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .books-scroll {
+            display: flex;
+            gap: 1.5rem;
+            padding: 1rem 0;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 transparent;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .books-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .books-scroll::-webkit-scrollbar-track {
+            background: rgba(203, 213, 224, 0.3);
+            border-radius: 3px;
+        }
+
+        .books-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 3px;
+        }
+
+        .books-scroll::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+
+        .book-card {
+            flex: 0 0 auto;
+            width: 200px;
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            cursor: pointer;
+        }
+
+        .book-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .book-cover {
+            width: 100%;
+            height: 250px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+            font-weight: 300;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .book-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+        }
+
+        .book-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }
+
+        .book-description {
+            font-size: 0.85rem;
+            color: #4a5568;
+            line-height: 1.4;
+            text-align: left;
+        }
+
+        .gallery-controls {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Three Column Section */
+        .three-column-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            text-align: left;
+        }
+
+        .bio-column {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .actions-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .bio-column:hover,
+        .action-section:hover {
+            background: rgba(255, 255, 255, 0.7);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .bio-column .section-title {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .bio-text p {
+            color: #4a5568;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .bio-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .action-section {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .action-section .section-title {
+            margin-bottom: 1rem;
+        }
+
+        .column-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            align-items: center;
+        }
+
+        .column-buttons .btn {
+            width: 100%;
+            max-width: 200px;
+        }
+
+        .link-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            background: white;
+            color: #4a5568;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a67d8, #6b46c1);
+            transform: translateY(-2px) scale(1.05);
+        }
+
+        .footer {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            color: #718096;
+            font-size: clamp(0.75rem, 2vw, 0.85rem);
+        }
+
+        /* Background decorations */
+        .bg-decoration {
+            position: fixed;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .circle-1 {
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            top: 10%;
+            left: -5%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .circle-2 {
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            bottom: 20%;
+            right: -3%;
+            animation: float 8s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(10deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .three-column-section {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .actions-column {
+                flex-direction: row;
+                gap: 1rem;
+            }
+
+            .action-section {
+                flex: 1;
+            }
+
+            .bio-column {
+                padding: 1.25rem;
+            }
+
+            .bio-text {
+                text-align: left;
+            }
+
+            .container {
+                padding: 2rem 1.5rem;
+                margin: 1rem;
+            }
+            
+            .avatar {
+                width: 100px;
+                height: 100px;
+                font-size: 2.5rem;
+            }
+
+            .book-card {
+                width: 160px;
+                padding: 1rem;
+            }
+
+            .book-cover {
+                height: 200px;
+                font-size: 2.5rem;
+            }
+
+            .book-title {
+                font-size: 1rem;
+            }
+
+            .book-description {
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .actions-column {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .main-container {
+                padding: 1rem 0.5rem;
+            }
+
+            .container {
+                padding: 1.5rem 1rem;
+                margin: 0.5rem;
+                border-radius: 16px;
+            }
+            
+            .link-group {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 280px;
+            }
+
+            .book-card {
+                width: 140px;
+                padding: 0.8rem;
+            }
+
+            .book-cover {
+                height: 180px;
+                font-size: 2rem;
+            }
+
+            .books-scroll {
+                gap: 1rem;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .book-card {
+                width: 120px;
+                padding: 0.6rem;
+            }
+
+            .book-cover {
+                height: 160px;
+                font-size: 1.8rem;
+            }
+
+            .book-title {
+                font-size: 0.9rem;
+            }
+
+            .book-description {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* Large screens */
+        @media (min-width: 1200px) {
+            .container {
+                max-width: 1000px;
+            }
+
+            .book-card {
+                width: 220px;
+                padding: 2rem;
+            }
+
+            .book-cover {
+                height: 280px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-decoration circle-1"></div>
+    <div class="bg-decoration circle-2"></div>
+    
+    <div class="main-container">
+        <div class="container">
+            <div class="avatar">✍️</div>
+            
+            <h1>Your Name</h1>
+            <p class="tagline">Storyteller & Author</p>
+            
+            <!-- Three Column Section -->
+            <div class="three-column-section">
+                <div class="bio-column">
+                    <div class="section-title">About Me</div>
+                    <div class="bio-text">
+                        <p>Welcome to my world of storytelling! I'm passionate about crafting tales that transport readers to extraordinary places and introduce them to unforgettable characters.</p>
+                        <p>With over a decade of writing experience, I specialize in weaving together elements of mystery, adventure, and human connection. When I'm not writing, you'll find me exploring new coffee shops, hiking mountain trails, or getting lost in a good book.</p>
+                    </div>
+                </div>
+                
+                <div class="actions-column">
+                    <div class="action-section">
+                        <div class="section-title">Connect</div>
+                        <div class="column-buttons">
+                            <a href="https://medium.com/@yourusername" class="btn" target="_blank">
+                                ✏️ Medium
+                            </a>
+                            <a href="https://bsky.app/profile/yourusername" class="btn" target="_blank">
+                                🦋 Bluesky
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="action-section">
+                        <div class="section-title">Support</div>
+                        <div class="column-buttons">
+                            <a href="https://ko-fi.com/yourusername" class="btn" target="_blank">
+                                ☕ Ko-fi
+                            </a>
+                            <a href="#" class="btn" target="_blank">
+                                🛍️ Merch Store
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Books Gallery Section -->
+            <div class="books-section">
+                <div class="section-title">My Books</div>
+                <div class="link-group" style="margin-bottom: 1.5rem;">
+                    <a href="https://amazon.com/author/yourname" class="btn btn-primary" target="_blank">
+                        📚 View All Books
+                    </a>
+                </div>
+                <div class="books-gallery">
+                    <div class="gallery-controls">
+                        <button class="control-btn" id="scrollLeft">‹</button>
+                        <button class="control-btn" id="scrollRight">›</button>
+                    </div>
+                    <div class="books-scroll" id="booksScroll">
+                        <div class="book-card">
+                            <div class="book-cover">
+                                📖
+                                <!-- Replace with: <img src="book1-cover.jpg" alt="Cover of The Enchanted Garden - A magical tale of discovery and wonder"> -->
+                            </div>
+                            <div class="book-title">The Enchanted Garden</div>
+                            <div class="book-description">A magical tale of discovery and wonder, where a young botanist uncovers secrets hidden in an ancient garden that blooms only under moonlight.</div>
+                        </div>
+                        
+                        <div class="book-card">
+                            <div class="book-cover">
+                                🌟
+                                <!-- Replace with: <img src="book2-cover.jpg" alt="Cover of Starlight Chronicles - An epic space adventure"> -->
+                            </div>
+                            <div class="book-title">Starlight Chronicles</div>
+                            <div class="book-description">An epic space adventure following Captain Maya as she navigates through distant galaxies, facing cosmic mysteries and alien civilizations.</div>
+                        </div>
+                        
+                        <div class="book-card">
+                            <div class="book-cover">
+                                🏰
+                                <!-- Replace with: <img src="book3-cover.jpg" alt="Cover of The Last Kingdom - A medieval fantasy epic"> -->
+                            </div>
+                            <div class="book-title">The Last Kingdom</div>
+                            <div class="book-description">A medieval fantasy epic where the fate of an entire realm rests in the hands of an unlikely hero with the power to unite warring kingdoms.</div>
+                        </div>
+                        
+                        <div class="book-card">
+                            <div class="book-cover">
+                                🌊
+                                <!-- Replace with: <img src="book4-cover.jpg" alt="Cover of Ocean's Whisper - A maritime mystery novel"> -->
+                            </div>
+                            <div class="book-title">Ocean's Whisper</div>
+                            <div class="book-description">A maritime mystery that follows marine archaeologist Dr. Sarah Chen as she uncovers a centuries-old secret beneath the Pacific depths.</div>
+                        </div>
+                        
+                        <div class="book-card">
+                            <div class="book-cover">
+                                🔥
+                                <!-- Replace with: <img src="book5-cover.jpg" alt="Cover of Phoenix Rising - A tale of rebirth and resilience"> -->
+                            </div>
+                            <div class="book-title">Phoenix Rising</div>
+                            <div class="book-description">A tale of rebirth and resilience, chronicling one woman's journey from devastating loss to finding her inner strength and purpose.</div>
+                        </div>
+                        
+                        <div class="book-card">
+                            <div class="book-cover">
+                                🎭
+                                <!-- Replace with: <img src="book6-cover.jpg" alt="Cover of Masks and Mirrors - A psychological thriller"> -->
+                            </div>
+                            <div class="book-title">Masks and Mirrors</div>
+                            <div class="book-description">A psychological thriller exploring the dark side of fame when a renowned theater director's past catches up with her in deadly ways.</div>
+                        </div>
+                        
+                        <div class="book-card">
+                            <div class="book-cover">
+                                🌸
+                                <!-- Replace with: <img src="book7-cover.jpg" alt="Cover of Cherry Blossom Dreams - A romantic drama set in Tokyo"> -->
+                            </div>
+                            <div class="book-title">Cherry Blossom Dreams</div>
+                            <div class="book-description">A romantic drama set against the backdrop of Tokyo's cherry blossom season, exploring love, tradition, and modern life in Japan.</div>
+                        </div>
+                        
+                        <div class="book-card">
+                            <div class="book-cover">
+                                ⚡
+                                <!-- Replace with: <img src="book8-cover.jpg" alt="Cover of Electric Souls - A cyberpunk dystopian novel"> -->
+                            </div>
+                            <div class="book-title">Electric Souls</div>
+                            <div class="book-description">A cyberpunk dystopian novel where humans and AI blur the lines of consciousness in a neon-lit world of corporate espionage and digital rebellion.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer">
+                Thank you for supporting independent authors ✨
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Books gallery scroll controls
+        const booksScroll = document.getElementById('booksScroll');
+        const scrollLeftBtn = document.getElementById('scrollLeft');
+        const scrollRightBtn = document.getElementById('scrollRight');
+
+        scrollLeftBtn.addEventListener('click', () => {
+            booksScroll.scrollBy({ left: -220, behavior: 'smooth' });
+        });
+
+        scrollRightBtn.addEventListener('click', () => {
+            booksScroll.scrollBy({ left: 220, behavior: 'smooth' });
+        });
+
+        // Update scroll button states
+        function updateScrollButtons() {
+            const isAtStart = booksScroll.scrollLeft <= 0;
+            const isAtEnd = booksScroll.scrollLeft >= (booksScroll.scrollWidth - booksScroll.clientWidth);
+            
+            scrollLeftBtn.disabled = isAtStart;
+            scrollRightBtn.disabled = isAtEnd;
+        }
+
+        booksScroll.addEventListener('scroll', updateScrollButtons);
+        window.addEventListener('resize', updateScrollButtons);
+        updateScrollButtons(); // Initial state
+
+        // Enhanced button interactions
+        document.querySelectorAll('.btn').forEach(btn => {
+            btn.addEventListener('mouseenter', () => {
+                btn.style.transform = 'translateY(-2px) scale(1.02)';
+            });
+            
+            btn.addEventListener('mouseleave', () => {
+                btn.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+
+        // Book card interactions
+        document.querySelectorAll('.book-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-8px) scale(1.02)';
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+
+        // Subtle parallax effect for decorative elements
+        document.addEventListener('mousemove', (e) => {
+            const circles = document.querySelectorAll('.bg-decoration');
+            const mouseX = e.clientX / window.innerWidth;
+            const mouseY = e.clientY / window.innerHeight;
+            
+            circles.forEach((circle, index) => {
+                const speed = (index + 1) * 0.3;
+                const x = (mouseX - 0.5) * speed;
+                const y = (mouseY - 0.5) * speed;
+                circle.style.transform += ` translate(${x}px, ${y}px)`;
+            });
+        });
+
+        // Touch/swipe support for mobile
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        booksScroll.addEventListener('mousedown', (e) => {
+            isDown = true;
+            startX = e.pageX - booksScroll.offsetLeft;
+            scrollLeft = booksScroll.scrollLeft;
+            booksScroll.style.cursor = 'grabbing';
+        });
+
+        booksScroll.addEventListener('mouseleave', () => {
+            isDown = false;
+            booksScroll.style.cursor = 'grab';
+        });
+
+        booksScroll.addEventListener('mouseup', () => {
+            isDown = false;
+            booksScroll.style.cursor = 'grab';
+        });
+
+        booksScroll.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - booksScroll.offsetLeft;
+            const walk = (x - startX) * 2;
+            booksScroll.scrollLeft = scrollLeft - walk;
+        });
+    </script>
+</body>
+</html>
