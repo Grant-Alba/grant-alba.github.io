@@ -41,7 +41,13 @@
             animation: fadeInUp 0.8s ease-out;
         }
 
-       
+        .author-image {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #ddd;
+        }
 
         @keyframes fadeInUp {
             from {
@@ -527,7 +533,7 @@
     
     <div class="main-container">
         <div class="container">
-            <div class="avatar"><img src="pics/Grant-Alba-bio-pic-square.png" alt="Photo of Grant" width="200" height="200"></div>
+            <div class="avatar"><img src="pics/Grant-Alba-bio-pic-square.png" alt="Photo of Grant" class="author-image"></div>
             
             <h1>Grant Alba</h1>
             <p class="tagline">Storyteller & Author</p>
