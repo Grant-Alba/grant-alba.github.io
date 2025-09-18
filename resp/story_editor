@@ -1,1 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grant Alba - Author</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            overflow-x: hidden;
+            padding: 1rem 0;
+        }
+
+        .main-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 3rem;
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .author-image {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #ddd;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .avatar {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+            font-weight: 300;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 2.5rem);
+            font-weight: 300;
+            margin-bottom: 0.5rem;
+            color: #2d3748;
+            letter-spacing: -0.02em;
+        }
+
+        .tagline {
+            color: #4a5568;
+            font-size: clamp(1rem, 3vw, 1.1rem);
+            margin-bottom: 2.5rem;
+            font-weight: 400;
+        }
+
+        .section-title {
+            font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #718096;
+            margin-bottom: 1.2rem;
+            font-weight: 600;
+        }
+
+        /* Books Gallery Section */
+        .books-section {
+            margin-bottom: 3rem;
+        }
+
+        .books-gallery {
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .books-scroll {
+            display: flex;
+            gap: 1.5rem;
+            padding: 1rem 0;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 transparent;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .books-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .books-scroll::-webkit-scrollbar-track {
+            background: rgba(203, 213, 224, 0.3);
+            border-radius: 3px;
+        }
+
+        .books-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 3px;
+        }
+
+        .books-scroll::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+
+        .book-card {
+            flex: 0 0 auto;
+            width: 200px;
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            cursor: pointer;
+        }
+
+        .book-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .book-cover {
+            width: 100%;
+            height: 250px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: white;
+            font-weight: 300;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .book-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 12px;
+        }
+
+        .book-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }
+        
+        .book-series {
+            font-size: 0.7rem;
+            font-weight: 200;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }
+        
+        .book-description {
+            font-size: 0.85rem;
+            color: #4a5568;
+            line-height: 1.4;
+            text-align: left;
+        }
+
+        .gallery-controls {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .control-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Three Column Section */
+        .three-column-section {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            text-align: left;
+        }
+
+        .bio-column {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .actions-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .bio-column:hover,
+        .action-section:hover {
+            background: rgba(255, 255, 255, 0.7);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .bio-column .section-title {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .bio-text p {
+            color: #4a5568;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .bio-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .action-section {
+            background: rgba(255, 255, 255, 0.5);
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid rgba(226, 232, 240, 0.5);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .action-section .section-title {
+            margin-bottom: 1rem;
+        }
+
+        .column-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            align-items: center;
+        }
+
+        .column-buttons .btn {
+            width: 100%;
+            max-width: 200px;
+        }
+
+        .link-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.8rem 1.5rem;
+            background: white;
+            color: #4a5568;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: clamp(0.8rem, 2.5vw, 0.9rem);
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a67d8, #6b46c1);
+            transform: translateY(-2px) scale(1.05);
+        }
+
+        .footer {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            color: #718096;
+            font-size: clamp(0.75rem, 2vw, 0.85rem);
+        }
+
+        /* Background decorations */
+        .bg-decoration {
+            position: fixed;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .circle-1 {
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            top: 10%;
+            left: -5%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .circle-2 {
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            bottom: 20%;
+            right: -3%;
+            animation: float 8s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(10deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .three-column-section {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .actions-column {
+                flex-direction: row;
+                gap: 1rem;
+            }
+
+            .action-section {
+                flex: 1;
+            }
+
+            .bio-column {
+                padding: 1.25rem;
+            }
+
+            .bio-text {
+                text-align: left;
+            }
+
+            .container {
+                padding: 2rem 1.5rem;
+                margin: 1rem;
+            }
+            
+            .avatar {
+                width: 100px;
+                height: 100px;
+                font-size: 2.5rem;
+            }
+
+            .book-card {
+                width: 160px;
+                padding: 1rem;
+            }
+
+            .book-cover {
+                height: 200px;
+                font-size: 2.5rem;
+            }
+
+            .book-title {
+                font-size: 1rem;
+            }
+
+            .book-description {
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .actions-column {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .main-container {
+                padding: 1rem 0.5rem;
+            }
+
+            .container {
+                padding: 1.5rem 1rem;
+                margin: 0.5rem;
+                border-radius: 16px;
+            }
+            
+            .link-group {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 100%;
+                max-width: 280px;
+            }
+
+            .book-card {
+                width: 140px;
+                padding: 0.8rem;
+            }
+
+            .book-cover {
+                height: 180px;
+                font-size: 2rem;
+            }
+
+            .books-scroll {
+                gap: 1rem;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .book-card {
+                width: 120px;
+                padding: 0.6rem;
+            }
+
+            .book-cover {
+                height: 160px;
+                font-size: 1.8rem;
+            }
+
+            .book-title {
+                font-size: 0.9rem;
+            }
+
+            .book-description {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* Large screens */
+        @media (min-width: 1200px) {
+            .container {
+                max-width: 1000px;
+            }
+
+            .book-card {
+                width: 220px;
+                padding: 2rem;
+            }
+
+            .book-cover {
+                height: 280px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-decoration circle-1"></div>
+    <div class="bg-decoration circle-2"></div>
+    
+    <div class="main-container">
+        <div class="container">
+            <div class="avatar"><img src="pics/Grant-Alba-bio-pic-square.png" alt="Photo of Grant" class="author-image"></div>
+            
+            <h1>Grant Alba</h1>
+            <p class="tagline">Storyteller & Author</p>
+            
+            <!-- Three Column Section -->
+            <div class="three-column-section">
+                <div class="bio-column">
+                    <div class="section-title">About Me</div>
+                    <div class="bio-text">
+                        <p>Welcome to my world of storytelling! I'm passionate about crafting tales that transcend convential genres boundaries.</p>
+                        <p>With over thirty years as a global consultant, I've written far too many words simply for the purpose of commerce. I've taken my global experience and corporate writing experience, to craft carefully plotted tales of intrigue, filled with smart unconventional characters. I specialize in weaving together elements of crime thriller, science fiction, romance, and human connection. When I'm not writing, you'll find me baking bread, eating that bread, sketching, riding my road bike, playing backgammon, or getting lost in a book (honestly?  words in a line are all I need)</p>
+                    </div>
+                </div>
+                
+                <div class="actions-column">
+                    <div class="action-section">
+                        <div class="section-title">MENU</div>
+                        <div class="column-buttons">
+                            <a href="author_landing_page.html" class="btn" target="_blank">
+                                🏠 Homepage
+                            </a>
+                        </div>
+                    </div>
+                    <div class="action-section">
+                        <div class="section-title">Connect</div>
+                        <div class="column-buttons">
+                            <a href="https://medium.com/@grant_alba" class="btn" target="_blank">
+                                ✏️ Medium
+                            </a>
+                            <a href="https://bsky.app/profile/grantalba.bsky.social" class="btn" target="_blank">
+                                🦋 Bluesky
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="action-section">
+                        <div class="section-title">Support</div>
+                        <div class="column-buttons">
+                            <a href="https://ko-fi.com/grantalba" class="btn" target="_blank">
+                                ☕ Ko-fi
+                            </a>
+                            <a href="#" class="btn" target="_blank">
+                                🛍️ Merch Store
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                  <iframe src="https://claude.site/public/artifacts/46d0e7b7-f292-4b9b-9989-fe6230553257/embed" title="Claude Artifact" width="100%" height="600" frameborder="0" allow="clipboard-write" allowfullscreen></iframe>
+            </div>
+            <div class="footer">
+                Thank you for supporting independent authors ✨
+            </div>
+        </div>
+    </div>
+
+   
+</body>
+</html>
