@@ -11,52 +11,6 @@
             box-sizing: border-box;
         }
 
-        /* Background decorations */
-        .bg-decoration {
-            position: fixed;
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        .circle-1 {
-            width: 100px;
-            height: 100px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            top: 10%;
-            left: -5%;
-            animation: float 6s ease-in-out infinite;
-        }
-
-        .circle-2 {
-            width: 900px;
-            height: 900px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 50%;
-            bottom: 20%;
-            right: -3%;
-            animation: float 8s ease-in-out infinite reverse;
-        }
-       
-        .container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 3rem;
-            max-width: 900px;
-            width: 100%;
-            text-align: center;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            animation: fadeInUp 0.8s ease-out;
-        }
-
-            .author-image {
-            width: 90px;
-            height: 90px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 4px solid #ddd;
             body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
             background-color: #f9fafb;
@@ -424,68 +378,63 @@
 <body>
     <div id="app">
         <div class="header">
-            <div class="container">
-                <div class="avatar"><img src="pics/Grant-Alba-bio-pic-square.png" alt="Photo of Grant" class="author-image"></div>
-                <a href="author_landing_page.html">Home page</a>
-            </div>
-                <h1>Story Timeline Editor</h1>
+            <h1>Story Timeline Editor</h1>
 
-                <div class="header-controls">
-                    <!-- Zoom Controls -->
-                    <div class="zoom-controls">
-                        <button id="zoom-out" class="btn btn-blue">−</button>
-                        <span id="zoom-label" class="zoom-label">WEEKS</span>
-                        <button id="zoom-in" class="btn btn-blue">+</button>
-                    </div>
-
-                    <!-- Timeline Navigation -->
-                    <div class="zoom-controls">
-                        <button id="nav-left" class="btn btn-light">←</button>
-                        <button id="nav-right" class="btn btn-light">→</button>
-                    </div>
-
-                    <!-- Import/Export -->
-                    <div class="zoom-controls">
-                        <button id="export-btn" class="btn btn-green">
-                            ↓ Export
-                        </button>
-                        <input type="file" id="import-file" class="hidden" accept=".md">
-                        <button id="import-btn" class="btn btn-blue">
-                            ↑ Import
-                        </button>
-                    </div>
+            <div class="header-controls">
+                <!-- Zoom Controls -->
+                <div class="zoom-controls">
+                    <button id="zoom-out" class="btn btn-blue">−</button>
+                    <span id="zoom-label" class="zoom-label">WEEKS</span>
+                    <button id="zoom-in" class="btn btn-blue">+</button>
                 </div>
-           
-        </div>
 
-            <!-- Category Management -->
-            <div class="categories-bar">
-                <div class="categories-content">
-                    <span class="categories-label">Categories:</span>
-                    <div id="categories-list"></div>
-                    <div class="zoom-controls">
-                        <input type="text" id="new-category" placeholder="New category" class="category-input">
-                        <button id="add-category" class="btn btn-gray text-xs">Add</button>
-                    </div>
+                <!-- Timeline Navigation -->
+                <div class="zoom-controls">
+                    <button id="nav-left" class="btn btn-light">←</button>
+                    <button id="nav-right" class="btn btn-light">→</button>
                 </div>
-            </div>
 
-            <!-- Timeline -->
-            <div class="timeline-container" style="min-height: 300px !important;">
-                <div id="timeline" class="timeline"></div>
-            </div>
-
-            <!-- Bottom Stack -->
-            <div class="scene-stack-container">
-                <div class="stack-header">
-                    <h3 class="stack-title">Scene Stack</h3>
-                    <button id="add-scene" class="btn btn-blue">
-                        + Add Scene
+                <!-- Import/Export -->
+                <div class="zoom-controls">
+                    <button id="export-btn" class="btn btn-green">
+                        ↓ Export
+                    </button>
+                    <input type="file" id="import-file" class="hidden" accept=".md">
+                    <button id="import-btn" class="btn btn-blue">
+                        ↑ Import
                     </button>
                 </div>
-                <div id="scene-stack" class="scene-stack"></div>
             </div>
         </div>
+
+        <!-- Category Management -->
+        <div class="categories-bar">
+            <div class="categories-content">
+                <span class="categories-label">Categories:</span>
+                <div id="categories-list"></div>
+                <div class="zoom-controls">
+                    <input type="text" id="new-category" placeholder="New category" class="category-input">
+                    <button id="add-category" class="btn btn-gray text-xs">Add</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="timeline-container" style="min-height: 300px !important;">
+            <div id="timeline" class="timeline"></div>
+        </div>
+
+        <!-- Bottom Stack -->
+        <div class="scene-stack-container">
+            <div class="stack-header">
+                <h3 class="stack-title">Scene Stack</h3>
+                <button id="add-scene" class="btn btn-blue">
+                    + Add Scene
+                </button>
+            </div>
+            <div id="scene-stack" class="scene-stack"></div>
+        </div>
+    </div>
 
     <script>
         // Add error logging
