@@ -60,6 +60,10 @@ class StoryTimelineEditor {
     
     init() {
         console.log('Initializing StoryTimelineEditor...');
+        
+        // Add reset button dynamically if it doesn't exist
+        this.ensureResetButton();
+        
         this.attachEventListeners();
         this.renderCategories();
         this.renderTimeline();
@@ -67,6 +71,32 @@ class StoryTimelineEditor {
         this.updateZoomLabel();
         this.updateZoomButtons();
         console.log('Initialization complete');
+    }
+    
+    ensureResetButton() {
+        // Check if reset button exists
+        let resetBtn = document.getElementById('reset-stack');
+        if (!resetBtn) {
+            console.log('Reset button not found, creating it...');
+            
+            // Find the import button to add reset button after it
+            const importBtn = document.getElementById('import-btn');
+            if (importBtn) {
+                resetBtn = document.createElement('button');
+                resetBtn.id = 'reset-stack';
+                resetBtn.className = 'btn btn-gray';
+                resetBtn.textContent = 'Reset';
+                resetBtn.style.marginLeft = '0.5rem';
+                
+                // Insert after import button
+                importBtn.parentNode.insertBefore(resetBtn, importBtn.nextSibling);
+                console.log('Reset button created and added');
+            } else {
+                console.error('Import button not found, cannot add reset button');
+            }
+        } else {
+            console.log('Reset button found in DOM');
+        }
     }
     
     // Update current context date based on timeline offset and zoom
@@ -960,18 +990,26 @@ class StoryTimelineEditor {
     }
     
     importFromMarkdown(event) {
+        console.log('importFromMarkdown called');
         const file = event.target.files[0];
-        if (!file) return;
+        if (!file) {
+            console.log('No file selected');
+            return;
+        }
 
+        console.log('Reading file:', file.name);
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
+                console.log('File loaded, parsing content');
                 const content = e.target.result;
                 const sceneBlocks = content.split('## SCENE:').filter(block => block.trim());
                 
+                console.log(`Found ${sceneBlocks.length} scene blocks`);
+                
                 const importedScenes = sceneBlocks.map((block, index) => {
                     const lines = block.split('\n').filter(line => line.trim());
-                    const scene = { id: index + 1 };
+                    const scene = { id: index + 1, logline: '', category: 'Setup', time: null, stackIndex: 1 };
                     
                     lines.forEach(line => {
                         if (line.startsWith('#LOGLINE:')) {
@@ -982,12 +1020,17 @@ class StoryTimelineEditor {
                         } else if (line.startsWith('#CATEGORY:')) {
                             scene.category = line.replace('#CATEGORY:', '').trim();
                         } else if (line.startsWith('#STACK INDEX:')) {
-                            scene.stackIndex = parseInt(line.replace('#STACK INDEX:', '').trim());
+                            scene.stackIndex = parseInt(line.replace('#STACK INDEX:', '').trim()) || 1;
                         }
                     });
                     
                     return scene;
-                });
+                }).filter(scene => scene.logline); // Only keep scenes with loglines
+
+                if (importedScenes.length === 0) {
+                    alert('No valid scenes found in the imported file.');
+                    return;
+                }
 
                 // Update categories based on imported scenes
                 const importedCategories = [...new Set(importedScenes.map(s => s.category))];
@@ -999,14 +1042,21 @@ class StoryTimelineEditor {
                 this.renderTimeline();
                 this.renderSceneStack();
                 
-                alert('Timeline imported successfully!');
+                alert(`Successfully imported ${importedScenes.length} scenes!`);
+                console.log('Import successful');
             } catch (error) {
-                alert('Error importing file. Please check the file format.');
+                console.error('Import error:', error);
+                alert('Error importing file. Please check the file format and try again.');
             }
         };
         
+        reader.onerror = () => {
+            console.error('File read error');
+            alert('Error reading file.');
+        };
+        
         reader.readAsText(file);
-        event.target.value = '';
+        event.target.value = ''; // Clear the input
     }
 }
 
