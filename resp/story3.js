@@ -4,8 +4,7 @@ class StoryTimelineEditor {
     constructor() {
         console.log('StoryTimelineEditor constructor called');
         
-        // Store original scenes for reset
-        this.originalScenes = [
+        this.scenes = [
             {
                 id: 1,
                 logline: "Hero discovers the ancient map in grandmother's attic",
@@ -29,16 +28,14 @@ class StoryTimelineEditor {
             }
         ];
         
-        this.scenes = JSON.parse(JSON.stringify(this.originalScenes)); // Deep copy
+        // Store original scenes for reset functionality
+        this.originalScenes = JSON.parse(JSON.stringify(this.scenes));
         
         this.categories = ['Setup', 'Plot Point', 'Action', 'Character', 'Climax'];
         this.zoomLevel = 2; // 0: Years, 1: Months, 2: Weeks, 3: Days, 4: Hours
         this.timelineOffset = 0;
         this.draggedScene = null;
         this.showNewSceneForm = false;
-        
-        // Context preservation for zoom
-        this.currentContextDate = new Date(2000, 0, 1); // Start at Jan 1, 2000
         
         this.zoomLevels = ['YEARS', 'MONTHS', 'WEEKS', 'DAYS', 'HOURS'];
         
@@ -60,10 +57,7 @@ class StoryTimelineEditor {
     
     init() {
         console.log('Initializing StoryTimelineEditor...');
-        
-        // Add reset button dynamically if it doesn't exist
-        this.ensureResetButton();
-        
+        this.addResetButton(); // Add reset button first
         this.attachEventListeners();
         this.renderCategories();
         this.renderTimeline();
@@ -73,136 +67,32 @@ class StoryTimelineEditor {
         console.log('Initialization complete');
     }
     
-    ensureResetButton() {
-        // Check if reset button exists
-        let resetBtn = document.getElementById('reset-stack');
-        if (!resetBtn) {
-            console.log('Reset button not found, creating it...');
+    addResetButton() {
+        // Add reset button after import button
+        const importBtn = document.getElementById('import-btn');
+        if (importBtn && !document.getElementById('reset-stack')) {
+            const resetBtn = document.createElement('button');
+            resetBtn.id = 'reset-stack';
+            resetBtn.className = 'btn btn-gray';
+            resetBtn.textContent = 'Reset';
+            resetBtn.style.marginLeft = '0.5rem';
             
-            // Find the import button to add reset button after it
-            const importBtn = document.getElementById('import-btn');
-            if (importBtn) {
-                resetBtn = document.createElement('button');
-                resetBtn.id = 'reset-stack';
-                resetBtn.className = 'btn btn-gray';
-                resetBtn.textContent = 'Reset';
-                resetBtn.style.marginLeft = '0.5rem';
-                
-                // Insert after import button
-                importBtn.parentNode.insertBefore(resetBtn, importBtn.nextSibling);
-                console.log('Reset button created and added');
-            } else {
-                console.error('Import button not found, cannot add reset button');
-            }
-        } else {
-            console.log('Reset button found in DOM');
+            // Insert after import button
+            importBtn.parentNode.insertBefore(resetBtn, importBtn.nextSibling);
+            console.log('Reset button added');
         }
     }
     
-    // Update current context date based on timeline offset and zoom
-    updateContextDate() {
-        const unitIndex = Math.floor(this.timelineOffset / 100);
-        
-        switch(this.zoomLevel) {
-            case 0: // Years
-                this.currentContextDate = new Date(2000 + unitIndex, 0, 1);
-                break;
-            case 1: // Months
-                const monthYear = 2000 + Math.floor(unitIndex / 12);
-                const monthIndex = unitIndex % 12;
-                this.currentContextDate = new Date(monthYear, monthIndex, 1);
-                break;
-            case 2: // Weeks
-                this.currentContextDate = new Date(2000, 0, 1 + unitIndex * 7);
-                break;
-            case 3: // Days
-                this.currentContextDate = new Date(2000, 0, 1 + unitIndex);
-                break;
-            case 4: // Hours
-                const hourDay = Math.floor(unitIndex / 24);
-                const hour = unitIndex % 24;
-                this.currentContextDate = new Date(2000, 0, 1 + hourDay, hour);
-                break;
-        }
-        
-        console.log(`Context updated: ${this.currentContextDate.toISOString()} at zoom ${this.zoomLevels[this.zoomLevel]}`);
-    }
-    
-    // Calculate timeline offset for a specific date at current zoom level
-    getOffsetForDate(targetDate, zoomLevel) {
-        const baseDate = new Date(2000, 0, 1);
-        
-        switch(zoomLevel) {
-            case 0: // Years
-                return (targetDate.getFullYear() - 2000) * 100;
-            case 1: // Months
-                const monthsDiff = (targetDate.getFullYear() - 2000) * 12 + targetDate.getMonth();
-                return monthsDiff * 100;
-            case 2: // Weeks
-                const weeksDiff = Math.floor((targetDate - baseDate) / (7 * 24 * 60 * 60 * 1000));
-                return weeksDiff * 100;
-            case 3: // Days
-                const daysDiff = Math.floor((targetDate - baseDate) / (24 * 60 * 60 * 1000));
-                return daysDiff * 100;
-            case 4: // Hours
-                const hoursDiff = Math.floor((targetDate - baseDate) / (60 * 60 * 1000));
-                return hoursDiff * 100;
-            default:
-                return 0;
-        }
-    }
-    
-    // Preserve context when changing zoom levels
-    changeZoomLevel(newZoomLevel) {
-        console.log(`Changing zoom from ${this.zoomLevels[this.zoomLevel]} to ${this.zoomLevels[newZoomLevel]}`);
-        
-        // Update current context based on current offset
-        this.updateContextDate();
-        
-        // Trim or extend context date based on new zoom level
-        let alignedDate;
-        switch(newZoomLevel) {
-            case 0: // Years - align to year start
-                alignedDate = new Date(this.currentContextDate.getFullYear(), 0, 1);
-                break;
-            case 1: // Months - align to month start  
-                alignedDate = new Date(this.currentContextDate.getFullYear(), this.currentContextDate.getMonth(), 1);
-                break;
-            case 2: // Weeks - align to week start (Sunday)
-                alignedDate = new Date(this.currentContextDate);
-                alignedDate.setDate(this.currentContextDate.getDate() - this.currentContextDate.getDay());
-                break;
-            case 3: // Days - align to day start
-                alignedDate = new Date(this.currentContextDate.getFullYear(), this.currentContextDate.getMonth(), this.currentContextDate.getDate());
-                break;
-            case 4: // Hours - keep exact time
-                alignedDate = new Date(this.currentContextDate);
-                break;
-            default:
-                alignedDate = new Date(this.currentContextDate);
-        }
-        
-        // Update zoom level and calculate new offset
-        this.zoomLevel = newZoomLevel;
-        this.timelineOffset = this.getOffsetForDate(alignedDate, newZoomLevel);
-        this.currentContextDate = alignedDate;
-        
-        console.log(`New context: ${alignedDate.toISOString()}, offset: ${this.timelineOffset}`);
-        
-        this.updateZoomLabel();
-        this.updateZoomButtons();
-        this.renderTimeline();
-    }
-    
-    // Reset all scenes to original state
     resetStack() {
-        if (confirm('Are you sure you want to reset all scenes to their original state? This will clear all timeline placements.')) {
-            this.scenes = JSON.parse(JSON.stringify(this.originalScenes)); // Deep copy
+        if (confirm('Reset all scenes to original state? This will clear all timeline placements.')) {
+            this.scenes = JSON.parse(JSON.stringify(this.originalScenes));
             this.renderTimeline();
             this.renderSceneStack();
             console.log('Stack reset to original state');
         }
     }
+    
+    attachEventListeners() {
         console.log('Attaching event listeners...');
         
         try {
@@ -250,6 +140,7 @@ class StoryTimelineEditor {
             const exportBtn = document.getElementById('export-btn');
             const importBtn = document.getElementById('import-btn');
             const importFile = document.getElementById('import-file');
+            const resetBtn = document.getElementById('reset-stack');
             
             if (exportBtn) {
                 exportBtn.addEventListener('click', () => {
@@ -264,6 +155,12 @@ class StoryTimelineEditor {
                 
                 importFile.addEventListener('change', (e) => {
                     this.importFromMarkdown(e);
+                });
+            }
+            
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    this.resetStack();
                 });
             }
             
@@ -290,74 +187,6 @@ class StoryTimelineEditor {
                     if (e.key === 'Enter') {
                         this.addNewCategory();
                     }
-                });
-            }
-            
-            // Timeline drag and drop - remove old listener first
-            const timeline = document.getElementById('timeline');
-            if (timeline) {
-                // Clone element to remove all event listeners
-                const newTimeline = timeline.cloneNode(true);
-                timeline.parentNode.replaceChild(newTimeline, timeline);
-                
-                // Add new event listeners
-                newTimeline.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    
-                    // Show visual feedback based on row
-                    const rect = newTimeline.getBoundingClientRect();
-                    const y = e.clientY - rect.top;
-                    const rowIndex = Math.floor((y - 60) / 120);
-                    const timelineRows = this.getVisibleTimelineScenes();
-                    
-                    if (rowIndex >= 0 && rowIndex < timelineRows.length) {
-                        newTimeline.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
-                        newTimeline.title = `Drop to create ${timelineRows[rowIndex].type} tag`;
-                    }
-                });
-                
-                newTimeline.addEventListener('dragleave', (e) => {
-                    newTimeline.style.backgroundColor = 'transparent';
-                    newTimeline.title = '';
-                });
-                
-                newTimeline.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    newTimeline.style.backgroundColor = 'transparent';
-                    newTimeline.title = '';
-                    
-                    if (!this.draggedScene) return;
-                    
-                    const rect = newTimeline.getBoundingClientRect();
-                    const dropX = e.clientX - rect.left + this.timelineOffset;
-                    const dropY = e.clientY - rect.top;
-                    
-                    // Determine which row was dropped on
-                    const rowIndex = Math.floor((dropY - 60) / 120);
-                    const timelineRows = this.getVisibleTimelineScenes();
-                    
-                    let timeLabel;
-                    if (rowIndex >= 0 && rowIndex < timelineRows.length) {
-                        // Drop on specific row - use that row's type
-                        const targetRowType = timelineRows[rowIndex].type;
-                        timeLabel = this.generateTimeTagForRow(dropX, targetRowType);
-                        console.log(`Dropped on ${targetRowType} row, generated tag: ${timeLabel}`);
-                    } else {
-                        // Drop outside rows - use current zoom level
-                        timeLabel = this.generateTimeLabel(dropX, this.zoomLevel);
-                        console.log(`Dropped outside rows, generated tag: ${timeLabel}`);
-                    }
-                    
-                    this.scenes = this.scenes.map(scene => 
-                        scene.id === this.draggedScene.id 
-                            ? { ...scene, time: timeLabel, stackIndex: 0 }
-                            : scene
-                    );
-                    
-                    this.draggedScene = null;
-                    this.renderTimeline();
-                    this.renderSceneStack();
                 });
             }
             
@@ -502,13 +331,68 @@ class StoryTimelineEditor {
         }));
     }
     
+    // Generate time tag based on column date and target row type
+    generateTimeTagForRow(position, targetRowType) {
+        const unitIndex = Math.floor(position / 100);
+        const baseDate = new Date(2000, 0, 1);
+        
+        // Calculate what actual date this column represents at current zoom level
+        let columnDate;
+        switch(this.zoomLevel) {
+            case 0: // Years zoom
+                columnDate = new Date(2000 + unitIndex, 0, 1);
+                break;
+            case 1: // Months zoom
+                const monthYear = 2000 + Math.floor(unitIndex / 12);
+                const monthIndex = unitIndex % 12;
+                columnDate = new Date(monthYear, monthIndex, 1);
+                break;
+            case 2: // Weeks zoom
+                columnDate = new Date(2000, 0, 1 + unitIndex * 7);
+                break;
+            case 3: // Days zoom
+                columnDate = new Date(2000, 0, 1 + unitIndex);
+                break;
+            case 4: // Hours zoom
+                const hourDay = Math.floor(unitIndex / 24);
+                const hour = unitIndex % 24;
+                columnDate = new Date(2000, 0, 1 + hourDay, hour);
+                break;
+            default:
+                columnDate = new Date(2000 + unitIndex, 0, 1);
+        }
+        
+        // Generate the appropriate tag based on the target row type
+        switch(targetRowType) {
+            case 'YEAR':
+                return `YEAR:${columnDate.getFullYear()}`;
+            case 'MONTH':
+                const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+                return `MONTH:${monthNames[columnDate.getMonth()]}-${columnDate.getFullYear()}`;
+            case 'WEEK':
+                const weekStart = new Date(columnDate);
+                weekStart.setDate(columnDate.getDate() - columnDate.getDay());
+                return `WEEK:${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
+            case 'DAY':
+                return `DAY:${columnDate.getFullYear()}-${String(columnDate.getMonth() + 1).padStart(2, '0')}-${String(columnDate.getDate()).padStart(2, '0')}`;
+            case 'HOUR':
+                const hourLabel = columnDate.getHours() === 0 ? '12am' : 
+                                 columnDate.getHours() < 12 ? `${columnDate.getHours()}am` : 
+                                 columnDate.getHours() === 12 ? '12pm' : 
+                                 `${columnDate.getHours() - 12}pm`;
+                return `HOUR:${columnDate.getFullYear()}-${String(columnDate.getMonth() + 1).padStart(2, '0')}-${String(columnDate.getDate()).padStart(2, '0')} ${hourLabel}`;
+            default:
+                return `YEAR:${columnDate.getFullYear()}`;
+        }
+    }
+    
     renderTimeline() {
         const timeline = document.getElementById('timeline');
         timeline.innerHTML = '';
         
         // Get visible scene rows first to calculate required height
         const timelineRows = this.getVisibleTimelineScenes();
-        const requiredHeight = Math.max(300, 60 + timelineRows.length * 120 + 60); // padding + rows + bottom padding
+        const requiredHeight = Math.max(300, 60 + timelineRows.length * 120 + 60);
         
         // Update timeline container height dynamically
         const timelineContainer = timeline.parentElement;
@@ -517,7 +401,7 @@ class StoryTimelineEditor {
         // Render timeline markers
         this.renderTimelineMarkers();
         
-        // Create a single drop zone for the entire timeline that handles row detection
+        // Create a single drop zone for the entire timeline
         const mainDropZone = document.createElement('div');
         mainDropZone.style.position = 'absolute';
         mainDropZone.style.top = '0';
@@ -525,7 +409,6 @@ class StoryTimelineEditor {
         mainDropZone.style.right = '0';
         mainDropZone.style.bottom = '0';
         mainDropZone.style.zIndex = '1';
-        mainDropZone.style.pointerEvents = 'all';
         
         let currentHighlightedRow = -1;
         
@@ -541,33 +424,27 @@ class StoryTimelineEditor {
             // Clear previous highlights
             document.querySelectorAll('.row-highlight').forEach(el => el.remove());
             
-            if (rowIndex >= 0 && rowIndex < timelineRows.length) {
-                // Create highlight for current row
-                if (currentHighlightedRow !== rowIndex) {
-                    const rowTop = 60 + rowIndex * 120;
-                    const highlight = document.createElement('div');
-                    highlight.className = 'row-highlight';
-                    highlight.style.position = 'absolute';
-                    highlight.style.top = `${rowTop - 10}px`;
-                    highlight.style.left = '0';
-                    highlight.style.right = '0';
-                    highlight.style.height = '100px';
-                    highlight.style.backgroundColor = 'rgba(59, 130, 246, 0.15)';
-                    highlight.style.border = '2px dashed rgba(59, 130, 246, 0.5)';
-                    highlight.style.borderRadius = '4px';
-                    highlight.style.zIndex = '2';
-                    highlight.style.pointerEvents = 'none';
-                    
-                    timeline.appendChild(highlight);
-                    currentHighlightedRow = rowIndex;
-                    
-                    console.log(`Highlighting ${timelineRows[rowIndex].type} row`);
-                }
+            if (rowIndex >= 0 && rowIndex < timelineRows.length && currentHighlightedRow !== rowIndex) {
+                const rowTop = 60 + rowIndex * 120;
+                const highlight = document.createElement('div');
+                highlight.className = 'row-highlight';
+                highlight.style.position = 'absolute';
+                highlight.style.top = `${rowTop - 10}px`;
+                highlight.style.left = '0';
+                highlight.style.right = '0';
+                highlight.style.height = '100px';
+                highlight.style.backgroundColor = 'rgba(59, 130, 246, 0.15)';
+                highlight.style.border = '2px dashed rgba(59, 130, 246, 0.5)';
+                highlight.style.borderRadius = '4px';
+                highlight.style.zIndex = '2';
+                highlight.style.pointerEvents = 'none';
+                
+                timeline.appendChild(highlight);
+                currentHighlightedRow = rowIndex;
             }
         });
         
         mainDropZone.addEventListener('dragleave', (e) => {
-            // Check if we're really leaving (not just moving to a child element)
             const rect = timeline.getBoundingClientRect();
             const x = e.clientX;
             const y = e.clientY;
@@ -589,17 +466,14 @@ class StoryTimelineEditor {
             const dropX = e.clientX - rect.left + this.timelineOffset;
             const dropY = e.clientY - rect.top;
             
-            // Determine which row was dropped on
             const rowIndex = Math.floor((dropY - 60) / 120);
             
             let timeLabel;
             if (rowIndex >= 0 && rowIndex < timelineRows.length) {
-                // Drop on specific row - use that row's type
                 const targetRowType = timelineRows[rowIndex].type;
                 timeLabel = this.generateTimeTagForRow(dropX, targetRowType);
                 console.log(`Dropped on ${targetRowType} row, generated tag: ${timeLabel}`);
             } else {
-                // Drop outside rows - use current zoom level
                 timeLabel = this.generateTimeLabel(dropX, this.zoomLevel);
                 console.log(`Dropped outside rows, generated tag: ${timeLabel}`);
             }
@@ -620,7 +494,6 @@ class StoryTimelineEditor {
         // Render row labels
         timelineRows.forEach((row, index) => {
             const rowTop = 60 + index * 120;
-            
             const label = document.createElement('div');
             label.className = 'row-label';
             label.style.top = `${rowTop}px`;
@@ -646,19 +519,11 @@ class StoryTimelineEditor {
                 card.innerHTML = `
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex-1">
-                            <p class="logline">
-                                ${scene.logline}
-                            </p>
+                            <p class="logline">${scene.logline}</p>
                             <div class="meta">
-                                <span class="category-badge" style="background-color: ${this.categoryColors[scene.category] || '#6B7280'}">
-                                    ${scene.category}
-                                </span>
-                                <span class="time-label">
-                                    ${scene.time}
-                                </span>
-                                <span class="type-label">
-                                    ${row.type}
-                                </span>
+                                <span class="category-badge" style="background-color: ${this.categoryColors[scene.category] || '#6B7280'}">${scene.category}</span>
+                                <span class="time-label">${scene.time}</span>
+                                <span class="type-label">${row.type}</span>
                             </div>
                         </div>
                     </div>
@@ -734,7 +599,7 @@ class StoryTimelineEditor {
         
         if (stackScenes.length === 0) {
             stack.innerHTML = `
-                <div class="flex items-center justify-center h-full text-gray-500">
+                <div class="stack-empty">
                     No scenes in stack. Add a new scene or drag scenes here from the timeline.
                 </div>
             `;
@@ -763,13 +628,9 @@ class StoryTimelineEditor {
             }
             
             card.innerHTML = `
-                <p class="text-sm font-medium text-gray-800 leading-tight">
-                    ${scene.logline}
-                </p>
+                <p class="text-sm font-medium text-gray-800 leading-tight">${scene.logline}</p>
                 <div class="flex items-center gap-2 mt-2">
-                    <span class="category-badge" style="background-color: ${this.categoryColors[scene.category] || '#6B7280'}">
-                        ${scene.category}
-                    </span>
+                    <span class="category-badge" style="background-color: ${this.categoryColors[scene.category] || '#6B7280'}">${scene.category}</span>
                     ${index === 0 ? '<span class="text-xs text-blue-600 font-medium">Double-click to cycle</span>' : ''}
                 </div>
             `;
@@ -800,83 +661,6 @@ class StoryTimelineEditor {
         document.getElementById('zoom-in').disabled = this.zoomLevel === 4;
     }
     
-    // Generate time tag based on column date and target row type
-    generateTimeTagForRow(position, targetRowType) {
-        const unitIndex = Math.floor(position / 100);
-        const baseDate = new Date(2000, 0, 1);
-        
-        // First, calculate what actual date this column represents at current zoom level
-        let columnDate;
-        switch(this.zoomLevel) {
-            case 0: // Years zoom
-                columnDate = new Date(2000 + unitIndex, 0, 1);
-                break;
-            case 1: // Months zoom
-                const monthYear = 2000 + Math.floor(unitIndex / 12);
-                const monthIndex = unitIndex % 12;
-                columnDate = new Date(monthYear, monthIndex, 1);
-                break;
-            case 2: // Weeks zoom
-                columnDate = new Date(2000, 0, 1 + unitIndex * 7);
-                break;
-            case 3: // Days zoom
-                columnDate = new Date(2000, 0, 1 + unitIndex);
-                break;
-            case 4: // Hours zoom
-                const hourDay = Math.floor(unitIndex / 24);
-                const hour = unitIndex % 24;
-                columnDate = new Date(2000, 0, 1 + hourDay, hour);
-                break;
-            default:
-                columnDate = new Date(2000 + unitIndex, 0, 1);
-        }
-        
-        // Now generate the appropriate tag based on the target row type
-        switch(targetRowType) {
-            case 'YEAR':
-                return `YEAR:${columnDate.getFullYear()}`;
-            case 'MONTH':
-                const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-                return `MONTH:${monthNames[columnDate.getMonth()]}-${columnDate.getFullYear()}`;
-            case 'WEEK':
-                // Find the start of the week containing this date (Sunday)
-                const weekStart = new Date(columnDate);
-                weekStart.setDate(columnDate.getDate() - columnDate.getDay());
-                return `WEEK:${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
-            case 'DAY':
-                return `DAY:${columnDate.getFullYear()}-${String(columnDate.getMonth() + 1).padStart(2, '0')}-${String(columnDate.getDate()).padStart(2, '0')}`;
-            case 'HOUR':
-                const hourLabel = columnDate.getHours() === 0 ? '12am' : 
-                                 columnDate.getHours() < 12 ? `${columnDate.getHours()}am` : 
-                                 columnDate.getHours() === 12 ? '12pm' : 
-                                 `${columnDate.getHours() - 12}pm`;
-                return `HOUR:${columnDate.getFullYear()}-${String(columnDate.getMonth() + 1).padStart(2, '0')}-${String(columnDate.getDate()).padStart(2, '0')} ${hourLabel}`;
-            default:
-                return `YEAR:${columnDate.getFullYear()}`;
-        }
-    }
-
-    handleRowDrop(e, rowType) {
-        e.preventDefault();
-        if (!this.draggedScene) return;
-        
-        const rect = document.getElementById('timeline').getBoundingClientRect();
-        const dropX = e.clientX - rect.left + this.timelineOffset;
-        
-        // Generate time tag based on column date and target row type
-        const timeLabel = this.generateTimeTagForRow(dropX, rowType);
-        
-        this.scenes = this.scenes.map(scene => 
-            scene.id === this.draggedScene.id 
-                ? { ...scene, time: timeLabel, stackIndex: 0 }
-                : scene
-        );
-        
-        this.draggedScene = null;
-        this.renderTimeline();
-        this.renderSceneStack();
-    }
-    
     handleStackDrop(e) {
         e.preventDefault();
         if (!this.draggedScene) return;
@@ -891,27 +675,7 @@ class StoryTimelineEditor {
         
         this.draggedScene = null;
         this.renderTimeline();
-        this.renderSceneStack();
-    }
-    
-    handleStackDoubleClick() {
-        const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
-        if (stackScenes.length === 0) return;
-        
-        const topScene = stackScenes[0];
-        const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
-        
-        this.scenes = this.scenes.map(scene => {
-            if (scene.id === topScene.id) {
-                return { ...scene, stackIndex: maxStackIndex + 1 };
-            }
-            if (scene.stackIndex > 1) {
-                return { ...scene, stackIndex: scene.stackIndex - 1 };
-            }
-            return scene;
-        });
-        
-        this.renderSceneStack();
+                this.renderSceneStack();
     }
     
     showAddSceneForm() {
@@ -922,18 +686,18 @@ class StoryTimelineEditor {
                 <h3 class="text-lg font-semibold mb-4">Add New Scene</h3>
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium mb-1">Logline:</label>
-                        <input type="text" id="scene-logline" placeholder="Scene logline..." class="w-full px-3 py-2 border rounded">
+                        <label class="form-label">Logline:</label>
+                        <input type="text" id="scene-logline" placeholder="Scene logline..." class="form-input">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium mb-1">Category:</label>
-                        <select id="scene-category" class="w-full px-3 py-2 border rounded">
+                        <label class="form-label">Category:</label>
+                        <select id="scene-category" class="form-select">
                             ${this.categories.map(cat => `<option value="${cat}">${cat}</option>`).join('')}
                         </select>
                     </div>
-                    <div class="flex gap-2">
-                        <button id="add-scene-confirm" class="flex-1 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Add</button>
-                        <button id="add-scene-cancel" class="flex-1 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">Cancel</button>
+                    <div class="form-buttons">
+                        <button id="add-scene-confirm" class="btn btn-green flex-1">Add</button>
+                        <button id="add-scene-cancel" class="btn btn-gray flex-1">Cancel</button>
                     </div>
                 </div>
             </div>
@@ -1016,10 +780,8 @@ class StoryTimelineEditor {
             const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
             
             if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-                // IE/Edge
                 window.navigator.msSaveOrOpenBlob(blob, 'story-timeline.md');
             } else {
-                // Modern browsers
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
@@ -1033,7 +795,6 @@ class StoryTimelineEditor {
                 setTimeout(() => URL.revokeObjectURL(url), 100);
             }
         } catch (error) {
-            // Fallback: copy to clipboard
             let markdown = '# Story Timeline\n\n';
             
             this.scenes.forEach(scene => {
@@ -1057,22 +818,14 @@ class StoryTimelineEditor {
     }
     
     importFromMarkdown(event) {
-        console.log('importFromMarkdown called');
         const file = event.target.files[0];
-        if (!file) {
-            console.log('No file selected');
-            return;
-        }
+        if (!file) return;
 
-        console.log('Reading file:', file.name);
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                console.log('File loaded, parsing content');
                 const content = e.target.result;
                 const sceneBlocks = content.split('## SCENE:').filter(block => block.trim());
-                
-                console.log(`Found ${sceneBlocks.length} scene blocks`);
                 
                 const importedScenes = sceneBlocks.map((block, index) => {
                     const lines = block.split('\n').filter(line => line.trim());
@@ -1092,14 +845,13 @@ class StoryTimelineEditor {
                     });
                     
                     return scene;
-                }).filter(scene => scene.logline); // Only keep scenes with loglines
+                }).filter(scene => scene.logline);
 
                 if (importedScenes.length === 0) {
                     alert('No valid scenes found in the imported file.');
                     return;
                 }
 
-                // Update categories based on imported scenes
                 const importedCategories = [...new Set(importedScenes.map(s => s.category))];
                 this.categories = [...new Set([...this.categories, ...importedCategories])];
                 
@@ -1110,20 +862,13 @@ class StoryTimelineEditor {
                 this.renderSceneStack();
                 
                 alert(`Successfully imported ${importedScenes.length} scenes!`);
-                console.log('Import successful');
             } catch (error) {
-                console.error('Import error:', error);
-                alert('Error importing file. Please check the file format and try again.');
+                alert('Error importing file. Please check the file format.');
             }
         };
         
-        reader.onerror = () => {
-            console.error('File read error');
-            alert('Error reading file.');
-        };
-        
         reader.readAsText(file);
-        event.target.value = ''; // Clear the input
+        event.target.value = '';
     }
 }
 
@@ -1135,7 +880,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('App initialized successfully');
     } catch (error) {
         console.error('Failed to initialize app:', error);
-        // Show error message to user
         const app = document.getElementById('app');
         if (app) {
             app.innerHTML = `
@@ -1155,3 +899,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 console.log('Story Timeline JS loaded successfully');
+    
+    handleStackDoubleClick() {
+        const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
+        if (stackScenes.length === 0) return;
+        
+        const topScene = stackScenes[0];
+        const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
+        
+        this.scenes = this.scenes.map(scene => {
+            if (scene.id === topScene.id) {
+                return { ...scene, stackIndex: maxStackIndex + 1 };
+            }
+            if (scene.stackIndex > 1) {
+                return { ...scene, stackIndex: scene.stackIndex - 1 };
+            }
+            return scene;
+        });
+        
+        
