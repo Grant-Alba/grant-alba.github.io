@@ -60,6 +60,10 @@ class StoryTimelineEditor {
     
     init() {
         console.log('Initializing StoryTimelineEditor...');
+        
+        // Add reset button dynamically if it doesn't exist
+        this.ensureResetButton();
+        
         this.attachEventListeners();
         this.renderCategories();
         this.renderTimeline();
@@ -67,6 +71,32 @@ class StoryTimelineEditor {
         this.updateZoomLabel();
         this.updateZoomButtons();
         console.log('Initialization complete');
+    }
+    
+    ensureResetButton() {
+        // Check if reset button exists
+        let resetBtn = document.getElementById('reset-stack');
+        if (!resetBtn) {
+            console.log('Reset button not found, creating it...');
+            
+            // Find the import button to add reset button after it
+            const importBtn = document.getElementById('import-btn');
+            if (importBtn) {
+                resetBtn = document.createElement('button');
+                resetBtn.id = 'reset-stack';
+                resetBtn.className = 'btn btn-gray';
+                resetBtn.textContent = 'Reset';
+                resetBtn.style.marginLeft = '0.5rem';
+                
+                // Insert after import button
+                importBtn.parentNode.insertBefore(resetBtn, importBtn.nextSibling);
+                console.log('Reset button created and added');
+            } else {
+                console.error('Import button not found, cannot add reset button');
+            }
+        } else {
+            console.log('Reset button found in DOM');
+        }
     }
     
     // Update current context date based on timeline offset and zoom
@@ -487,43 +517,110 @@ class StoryTimelineEditor {
         // Render timeline markers
         this.renderTimelineMarkers();
         
-        // Render row labels and drop zones
+        // Create a single drop zone for the entire timeline that handles row detection
+        const mainDropZone = document.createElement('div');
+        mainDropZone.style.position = 'absolute';
+        mainDropZone.style.top = '0';
+        mainDropZone.style.left = '0';
+        mainDropZone.style.right = '0';
+        mainDropZone.style.bottom = '0';
+        mainDropZone.style.zIndex = '1';
+        mainDropZone.style.pointerEvents = 'all';
+        
+        let currentHighlightedRow = -1;
+        
+        mainDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            // Calculate which row is being hovered
+            const rect = timeline.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            const rowIndex = Math.floor((y - 60) / 120);
+            
+            // Clear previous highlights
+            document.querySelectorAll('.row-highlight').forEach(el => el.remove());
+            
+            if (rowIndex >= 0 && rowIndex < timelineRows.length) {
+                // Create highlight for current row
+                if (currentHighlightedRow !== rowIndex) {
+                    const rowTop = 60 + rowIndex * 120;
+                    const highlight = document.createElement('div');
+                    highlight.className = 'row-highlight';
+                    highlight.style.position = 'absolute';
+                    highlight.style.top = `${rowTop - 10}px`;
+                    highlight.style.left = '0';
+                    highlight.style.right = '0';
+                    highlight.style.height = '100px';
+                    highlight.style.backgroundColor = 'rgba(59, 130, 246, 0.15)';
+                    highlight.style.border = '2px dashed rgba(59, 130, 246, 0.5)';
+                    highlight.style.borderRadius = '4px';
+                    highlight.style.zIndex = '2';
+                    highlight.style.pointerEvents = 'none';
+                    
+                    timeline.appendChild(highlight);
+                    currentHighlightedRow = rowIndex;
+                    
+                    console.log(`Highlighting ${timelineRows[rowIndex].type} row`);
+                }
+            }
+        });
+        
+        mainDropZone.addEventListener('dragleave', (e) => {
+            // Check if we're really leaving (not just moving to a child element)
+            const rect = timeline.getBoundingClientRect();
+            const x = e.clientX;
+            const y = e.clientY;
+            
+            if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+                document.querySelectorAll('.row-highlight').forEach(el => el.remove());
+                currentHighlightedRow = -1;
+            }
+        });
+        
+        mainDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            document.querySelectorAll('.row-highlight').forEach(el => el.remove());
+            currentHighlightedRow = -1;
+            
+            if (!this.draggedScene) return;
+            
+            const rect = timeline.getBoundingClientRect();
+            const dropX = e.clientX - rect.left + this.timelineOffset;
+            const dropY = e.clientY - rect.top;
+            
+            // Determine which row was dropped on
+            const rowIndex = Math.floor((dropY - 60) / 120);
+            
+            let timeLabel;
+            if (rowIndex >= 0 && rowIndex < timelineRows.length) {
+                // Drop on specific row - use that row's type
+                const targetRowType = timelineRows[rowIndex].type;
+                timeLabel = this.generateTimeTagForRow(dropX, targetRowType);
+                console.log(`Dropped on ${targetRowType} row, generated tag: ${timeLabel}`);
+            } else {
+                // Drop outside rows - use current zoom level
+                timeLabel = this.generateTimeLabel(dropX, this.zoomLevel);
+                console.log(`Dropped outside rows, generated tag: ${timeLabel}`);
+            }
+            
+            this.scenes = this.scenes.map(scene => 
+                scene.id === this.draggedScene.id 
+                    ? { ...scene, time: timeLabel, stackIndex: 0 }
+                    : scene
+            );
+            
+            this.draggedScene = null;
+            this.renderTimeline();
+            this.renderSceneStack();
+        });
+        
+        timeline.appendChild(mainDropZone);
+        
+        // Render row labels
         timelineRows.forEach((row, index) => {
             const rowTop = 60 + index * 120;
             
-            // Create drop zone for each row
-            const dropZone = document.createElement('div');
-            dropZone.className = 'row-drop-zone';
-            dropZone.style.position = 'absolute';
-            dropZone.style.top = `${rowTop - 10}px`;
-            dropZone.style.left = '0';
-            dropZone.style.right = '0';
-            dropZone.style.height = '100px';
-            dropZone.style.zIndex = '1';
-            dropZone.dataset.rowType = row.type;
-            dropZone.style.backgroundColor = 'transparent';
-            dropZone.style.transition = 'background-color 0.2s ease';
-            
-            // Add drop zone event listeners
-            dropZone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                dropZone.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
-            });
-            
-            dropZone.addEventListener('dragleave', (e) => {
-                dropZone.style.backgroundColor = 'transparent';
-            });
-            
-            dropZone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                dropZone.style.backgroundColor = 'transparent';
-                this.handleRowDrop(e, row.type);
-            });
-            
-            timeline.appendChild(dropZone);
-            
-            // Render row label
             const label = document.createElement('div');
             label.className = 'row-label';
             label.style.top = `${rowTop}px`;
