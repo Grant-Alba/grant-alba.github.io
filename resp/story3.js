@@ -91,6 +91,26 @@ class StoryTimelineEditor {
             console.log('Stack reset to original state');
         }
     }
+
+    handleStackDoubleClick() {
+        const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
+        if (stackScenes.length === 0) return;
+
+        const topScene = stackScenes[0];
+        const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
+
+        this.scenes = this.scenes.map(scene => {
+            if (scene.id === topScene.id) {
+                return { ...scene, stackIndex: maxStackIndex + 1 };
+            }
+            if (scene.stackIndex > 1) {
+                return { ...scene, stackIndex: scene.stackIndex - 1 };
+            }
+            return scene;
+        }
+        )
+
+    }
     
     attachEventListeners() {
         console.log('Attaching event listeners...');
@@ -925,26 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
     }
-})
+});
 
 console.log('Story Timeline JS loaded successfully');
     
-handleStackDoubleClick(); {
-    const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
-    if (stackScenes.length === 0) return;
-
-    const topScene = stackScenes[0];
-    const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
-
-    this.scenes = this.scenes.map(scene => {
-        if (scene.id === topScene.id) {
-            return { ...scene, stackIndex: maxStackIndex + 1 };
-        }
-        if (scene.stackIndex > 1) {
-            return { ...scene, stackIndex: scene.stackIndex - 1 };
-        }
-        return scene;
-    }
-    )
-            
-};
