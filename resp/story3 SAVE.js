@@ -91,6 +91,26 @@ class StoryTimelineEditor {
             console.log('Stack reset to original state');
         }
     }
+
+    handleStackDoubleClick() {
+        const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
+        if (stackScenes.length === 0) return;
+
+        const topScene = stackScenes[0];
+        const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
+
+        this.scenes = this.scenes.map(scene => {
+            if (scene.id === topScene.id) {
+                return { ...scene, stackIndex: maxStackIndex + 1 };
+            }
+            if (scene.stackIndex > 1) {
+                return { ...scene, stackIndex: scene.stackIndex - 1 };
+            }
+            return scene;
+        }
+        )
+
+    }
     
     attachEventListeners() {
         console.log('Attaching event listeners...');
@@ -149,15 +169,11 @@ class StoryTimelineEditor {
             }
             
             if (importBtn && importFile) {
-                importBtn.addEventListener('click', (e) => {
-                    e.preventDefault(); // Prevent any default behavior
-                    e.stopPropagation(); // Stop event bubbling
-                    console.log('Import button clicked - opening file dialog');
+                importBtn.addEventListener('click', () => {
                     importFile.click();
                 });
                 
                 importFile.addEventListener('change', (e) => {
-                    console.log('File input changed');
                     this.importFromMarkdown(e);
                 });
             }
@@ -822,32 +838,18 @@ class StoryTimelineEditor {
     }
     
     importFromMarkdown(event) {
-        console.log('importFromMarkdown called');
         const file = event.target.files[0];
-        if (!file) {
-            console.log('No file selected');
-            return;
-        }
+        if (!file) return;
 
-        console.log('Processing file:', file.name);
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
-                console.log('File loaded, parsing content');
                 const content = e.target.result;
                 const sceneBlocks = content.split('## SCENE:').filter(block => block.trim());
                 
-                console.log(`Found ${sceneBlocks.length} scene blocks`);
-                
                 const importedScenes = sceneBlocks.map((block, index) => {
                     const lines = block.split('\n').filter(line => line.trim());
-                    const scene = { 
-                        id: index + 1, 
-                        logline: '', 
-                        category: 'Setup', 
-                        time: null, 
-                        stackIndex: 1 
-                    };
+                    const scene = { id: index + 1, logline: '', category: 'Setup', time: null, stackIndex: 1 };
                     
                     lines.forEach(line => {
                         if (line.startsWith('#LOGLINE:')) {
@@ -858,19 +860,10 @@ class StoryTimelineEditor {
                         } else if (line.startsWith('#CATEGORY:')) {
                             scene.category = line.replace('#CATEGORY:', '').trim();
                         } else if (line.startsWith('#STACK INDEX:')) {
-                            const stackIndex = parseInt(line.replace('#STACK INDEX:', '').trim());
-                            scene.stackIndex = stackIndex || 1;
+                            scene.stackIndex = parseInt(line.replace('#STACK INDEX:', '').trim()) || 1;
                         }
                     });
                     
-                    // Important fix: If scene has a time but stackIndex is 0, it should be on timeline
-                    if (scene.time && scene.stackIndex === 0) {
-                        scene.stackIndex = 0; // Timeline
-                    } else if (!scene.time && scene.stackIndex === 0) {
-                        scene.stackIndex = 1; // Force to stack if no time
-                    }
-                    
-                    console.log(`Scene ${scene.id}: "${scene.logline}" - Time: ${scene.time}, Stack: ${scene.stackIndex}`);
                     return scene;
                 }).filter(scene => scene.logline);
 
@@ -879,37 +872,22 @@ class StoryTimelineEditor {
                     return;
                 }
 
-                // Update categories based on imported scenes
                 const importedCategories = [...new Set(importedScenes.map(s => s.category))];
                 this.categories = [...new Set([...this.categories, ...importedCategories])];
                 
-                // Replace current scenes with imported ones
                 this.scenes = importedScenes;
                 
-                // Re-render everything
                 this.renderCategories();
                 this.renderTimeline();
                 this.renderSceneStack();
                 
-                const timelineScenes = importedScenes.filter(s => s.stackIndex === 0).length;
-                const stackScenes = importedScenes.filter(s => s.stackIndex > 0).length;
-                
-                alert(`Successfully imported ${importedScenes.length} scenes!\n${timelineScenes} on timeline, ${stackScenes} in stack.`);
-                console.log(`Import complete: ${timelineScenes} timeline scenes, ${stackScenes} stack scenes`);
+                alert(`Successfully imported ${importedScenes.length} scenes!`);
             } catch (error) {
-                console.error('Import error:', error);
-                alert('Error importing file. Please check the file format and try again.');
+                alert('Error importing file. Please check the file format.');
             }
         };
         
-        reader.onerror = () => {
-            console.error('File read error');
-            alert('Error reading file.');
-        };
-        
         reader.readAsText(file);
-        
-        // Clear the input value to allow re-importing the same file
         event.target.value = '';
     }
 }
@@ -938,10 +916,10 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
     }
-});
+})
 
 console.log('Story Timeline JS loaded successfully');
-}
+
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -971,21 +949,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
 console.log('Story Timeline JS loaded successfully');
     
-    handleStackDoubleClick() {
-        const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
-        if (stackScenes.length === 0) return;
-        
-        const topScene = stackScenes[0];
-        const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
-        
-        this.scenes = this.scenes.map(scene => {
-            if (scene.id === topScene.id) {
-                return { ...scene, stackIndex: maxStackIndex + 1 };
-            }
-            if (scene.stackIndex > 1) {
-                return { ...scene, stackIndex: scene.stackIndex - 1 };
-            }
-            return scene;
-        });
-        
-        
