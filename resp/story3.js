@@ -871,6 +871,36 @@ class StoryTimelineEditor {
         event.target.value = '';
     }
 }
+
+// Initialize the app when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM Content Loaded - initializing app');
+    try {
+        window.storyEditor = new StoryTimelineEditor();
+        console.log('App initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+        const app = document.getElementById('app');
+        if (app) {
+            app.innerHTML = `
+                <div style="padding: 2rem; text-align: center; color: #dc2626;">
+                    <h2>Error Loading Application</h2>
+                    <p>There was an error loading the Story Timeline Editor. Please check the browser console for details.</p>
+                    <p style="font-family: monospace; background: #f3f4f6; padding: 1rem; margin: 1rem 0; border-radius: 0.375rem;">
+                        ${error.message}
+                    </p>
+                    <button onclick="location.reload()" style="padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 0.375rem; cursor: pointer;">
+                        Reload Page
+                    </button>
+                </div>
+            `;
+        }
+    }
+});
+
+console.log('Story Timeline JS loaded successfully');
+}
+
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM Content Loaded - initializing app');
@@ -899,28 +929,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 console.log('Story Timeline JS loaded successfully');
     
-handleStackDoubleClick() 
-{
-    const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
-    if (stackScenes.length === 0) return;
-
-    const topScene = stackScenes[0];
-    const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
-
-    this.scenes = this.scenes.map(scene => {
-        if (scene.id === topScene.id) {
-            return { ...scene, stackIndex: maxStackIndex + 1 };
-        }
-        if (scene.stackIndex > 1) {
-            return { ...scene, stackIndex: scene.stackIndex - 1 };
-        }
-        return scene;
-
-
-
-
-
-
-    }
-    )
-}
+    handleStackDoubleClick() {
+        const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
+        if (stackScenes.length === 0) return;
+        
+        const topScene = stackScenes[0];
+        const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
+        
+        this.scenes = this.scenes.map(scene => {
+            if (scene.id === topScene.id) {
+                return { ...scene, stackIndex: maxStackIndex + 1 };
+            }
+            if (scene.stackIndex > 1) {
+                return { ...scene, stackIndex: scene.stackIndex - 1 };
+            }
+            return scene;
+        });
+        
+        
