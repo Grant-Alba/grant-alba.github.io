@@ -896,10 +896,10 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
     }
-});
+})
 
 console.log('Story Timeline JS loaded successfully');
-}
+
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -925,25 +925,26 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
     }
-});
+})
 
 console.log('Story Timeline JS loaded successfully');
     
-    handleStackDoubleClick() {
-        const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
-        if (stackScenes.length === 0) return;
-        
-        const topScene = stackScenes[0];
-        const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
-        
-        this.scenes = this.scenes.map(scene => {
-            if (scene.id === topScene.id) {
-                return { ...scene, stackIndex: maxStackIndex + 1 };
-            }
-            if (scene.stackIndex > 1) {
-                return { ...scene, stackIndex: scene.stackIndex - 1 };
-            }
-            return scene;
-        });
-        
-        
+handleStackDoubleClick(); {
+    const stackScenes = this.scenes.filter(scene => scene.stackIndex > 0).sort((a, b) => a.stackIndex - b.stackIndex);
+    if (stackScenes.length === 0) return;
+
+    const topScene = stackScenes[0];
+    const maxStackIndex = Math.max(...stackScenes.map(s => s.stackIndex));
+
+    this.scenes = this.scenes.map(scene => {
+        if (scene.id === topScene.id) {
+            return { ...scene, stackIndex: maxStackIndex + 1 };
+        }
+        if (scene.stackIndex > 1) {
+            return { ...scene, stackIndex: scene.stackIndex - 1 };
+        }
+        return scene;
+    }
+    )
+            
+};
