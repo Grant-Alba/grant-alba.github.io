@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SceneCard Writer v6.20 (Fixed Pitch - Padding Spacing)</title>
+    <title>SceneCard Writer v6.21 (Fixed Pitch - Pseudo-Element Spacing)</title>
     <style>
         /* --- THEME VARIABLES --- */
         :root { 
@@ -233,36 +233,39 @@
         #script-content > div:not(.sc-title-page) > div {
             white-space: pre; 
             margin: 0 !important; /* CRITICAL: Eliminate all default margins */
-            padding: 0 !important;
+            padding: 0 !important; /* CRITICAL: Eliminate all padding from V6.20 */
             text-indent: 0;
             line-height: 1.2em !important; /* Fixed line height is crucial for 55 lines per page */
             color: black;
         }
         
-        /* --- CRITICAL PADDING-BASED SPACING --- */
+        /* --- CRITICAL PSEUDO-ELEMENT SPACING --- */
         
-        /* Standard 1-line gap BELOW the content block (1.2em is one line height) */
-        .sc-header, 
-        .sc-action, 
-        .sc-intertitle, 
-        .sc-montage-item {
-            padding-bottom: 1.2em !important; 
-        }
-
-        /* Dialogue Block: The gap should only be after the last line of the dialogue block. */
-        /* Dialogue is wrapped in one main div (.sc-dialog-block) containing line-divs. */
-        /* The lines inside a dialogue block should have zero padding. */
-        .sc-dialog-block > div:last-child { 
-            padding-bottom: 1.2em !important; /* Add gap *after* the entire dialogue block */
-        }
-
-        /* Transitions: Need a 1-line gap BEFORE AND AFTER. */
-        .sc-transition {
-            padding-top: 1.2em !important;
-            padding-bottom: 1.2em !important;
+        /* Target all content blocks that need a 1-line gap AFTER them. */
+        .sc-header::after,
+        .sc-action::after, 
+        .sc-intertitle::after,
+        .sc-montage-item::after,
+        .sc-dialog-block > div:last-child::after, /* Gap after the last line of dialogue */
+        .sc-transition::after /* Transition needs space after too */
+        { 
+            content: ''; 
+            display: block; /* Make it a block element */
+            height: 1.2em; /* Guaranteed height of one line */
+            line-height: 1.2em; /* Ensure its line height matches */
+            visibility: hidden; /* Keep it invisible */
         }
         
-        /* --- END PADDING-BASED SPACING --- */
+        /* Transitions: Need a 1-line gap BEFORE AND AFTER. The AFTER is handled above. */
+        .sc-transition::before {
+            content: ''; 
+            display: block; 
+            height: 1.2em; 
+            line-height: 1.2em; 
+            visibility: hidden; 
+        }
+        
+        /* --- END PSEUDO-ELEMENT SPACING --- */
 
 
         /* Special Styling for specific line types */
@@ -1554,7 +1557,7 @@
                 this.pageCounter = 0;
             }
             
-            // Note: isLastLineBlank is removed as spacing is handled by CSS Padding.
+            // Note: Spacing is handled by CSS ::after pseudo-elements.
 
             // Insert lines and handle overflow
             insert(formattedLines, elementClass, forceBreak = false) {
@@ -1566,8 +1569,25 @@
 
                 const linesRemaining = MAX_LINES_PER_PAGE - this.lines.length;
                 
-                // If the entire block won't fit on the remaining lines, flush first
-                if (formattedLines.length > linesRemaining && this.lines.length > 0) {
+                // If the entire block (plus its guaranteed ::after spacer line) won't fit on the remaining lines, flush first
+                let requiredLines = formattedLines.length;
+                
+                // The pseudo-element adds 1 line of height to the element's content box. 
+                // We need to check the space required for the last line of the block.
+                const isSpacedBlock = 
+                    elementClass === 'sc-header' || 
+                    elementClass === 'sc-action' || 
+                    elementClass === 'sc-intertitle' || 
+                    elementClass === 'sc-montage-item' || 
+                    elementClass === 'sc-transition' || 
+                    elementClass === 'sc-dialog-block'; 
+                
+                if (isSpacedBlock && formattedLines.length > 0) {
+                     requiredLines += 1; // Count the ::after spacer line
+                     if (elementClass === 'sc-transition') requiredLines += 1; // Transitions have ::before and ::after
+                }
+                
+                if (requiredLines > linesRemaining && this.lines.length > 0) {
                     html += this.flush();
                 }
                 
@@ -1615,7 +1635,7 @@
         function formatHeader(headerText) {
             const lines = [];
             lines.push(padString(headerText.toUpperCase(), 0, 55));
-            // Spacing is handled by .sc-header { padding-bottom: 1.2em; }
+            // Spacing is handled by .sc-header::after
             return lines;
         }
 
@@ -1623,7 +1643,7 @@
         function formatAction(text) {
             const wrappedLines = wordWrap(text, CHAR_WIDTH);
             const paddedLines = wrappedLines.map(line => padString(line, 0, CHAR_WIDTH));
-            // Spacing is handled by .sc-action { padding-bottom: 1.2em; }
+            // Spacing is handled by .sc-action::after
             return paddedLines;
         }
 
@@ -1631,7 +1651,7 @@
         function formatTransition(text) {
             const lines = [];
             
-            // Spacing is handled by .sc-transition { padding-top/bottom: 1.2em; }
+            // Spacing is handled by .sc-transition::before and ::after
             
             const transitionText = text.toUpperCase() + '.';
             const rightPad = Math.max(0, CHAR_WIDTH - transitionText.length);
@@ -1645,7 +1665,7 @@
             const lines = [];
             const charName = s.content.toUpperCase();
             
-            // Spacing is handled by the previous element's padding or the .sc-dialog-block > div:last-child
+            // Spacing is handled by the .sc-dialog-block > div:last-child::after
 
             // Character Name Line
             const namePad = Math.max(0, DIALOGUE_COL + Math.floor((DIALOGUE_WIDTH - charName.length) / 2));
@@ -1671,7 +1691,7 @@
                 lines.push(padString(line, DIALOGUE_COL, CHAR_WIDTH));
             });
 
-            // Spacing is handled by .sc-dialog-block > div:last-child { padding-bottom: 1.2em; }
+            // Spacing is handled by .sc-dialog-block > div:last-child::after
             return lines;
         }
 
@@ -1679,20 +1699,20 @@
         function formatMontageItem(item) {
             const lines = [];
             lines.push(padString(`-- ${item}`, 0, CHAR_WIDTH));
-            // Spacing is handled by .sc-montage-item { padding-bottom: 1.2em; }
+            // Spacing is handled by .sc-montage-item::after
             return lines;
         }
 
         // 6. Title Card/Intertitle
         function formatTitleCard(text) {
             const lines = [];
-            // Space before is handled by previous element's padding-bottom.
+            // Space is handled by previous element's ::after.
             
             const centeredText = text.toUpperCase();
             const centerPad = Math.floor((CHAR_WIDTH - centeredText.length) / 2);
             lines.push(padString(centeredText, centerPad, CHAR_WIDTH));
             
-            // Space after is handled by .sc-intertitle { padding-bottom: 1.2em; }
+            // Space after is handled by .sc-intertitle::after
             return lines;
         }
 
@@ -1715,7 +1735,7 @@
             // --- 2. GLOBAL TRANSITIONS ---
             scriptMetadata.transitions.forEach(t => {
                 const lines = formatTransition(t);
-                // .sc-transition CSS padding handles the 1-line gap before and after
+                // .sc-transition CSS pseudo-elements handle the 1-line gap before and after
                 scriptHtml += buffer.insert(lines, 'sc-transition'); 
             });
 
@@ -1727,13 +1747,13 @@
                 
                 // 3a. SCENE HEADER
                 const headerLines = formatHeader(`${c.sceneNumber}. ${c.header}`);
-                // .sc-header CSS padding handles the 1-line gap after
+                // .sc-header::after handles the 1-line gap after
                 scriptHtml += buffer.insert(headerLines, 'sc-header'); 
 
                 // 3b. OPENING ACTION / NOTES
                 if(c.notes) {
                     const actionLines = formatAction(c.notes);
-                    // .sc-action CSS padding handles the 1-line gap after
+                    // .sc-action::after handles the 1-line gap after
                     scriptHtml += buffer.insert(actionLines, 'sc-action'); 
                 }
 
@@ -1741,10 +1761,10 @@
                 if (c.header.toUpperCase().startsWith('MONTAGE') && c.montage && c.montage.length > 0) {
                     c.montage.forEach(item => {
                         const lines = formatMontageItem(item);
-                        // .sc-montage-item CSS padding handles the 1-line gap after
+                        // .sc-montage-item::after handles the 1-line gap after
                         scriptHtml += buffer.insert(lines, 'sc-montage-item'); 
                     });
-                    // NO extra blank line needed after the montage block as the last item's padding handles it.
+                    // NO extra blank line needed after the montage block as the last item's ::after handles it.
                 } 
                 
                 // 3d. SEQUENCE ELEMENTS (Dialogue/Action)
@@ -1756,14 +1776,14 @@
                         if (s.type === 'Character') {
                             lines = formatDialogue(s);
                             cssClass = 'sc-dialog-block';
-                            // Padding is applied only to the LAST line of this block via CSS selector
+                            // ::after is applied only to the LAST line of this block via CSS selector
                         } else if (s.type === 'Action') {
                             const styleUpper = (s.style || '').toUpperCase();
                             
                             if (styleUpper === 'TITLE CARD' || styleUpper === 'INTERTITLE') {
                                 lines = formatTitleCard(s.text);
                                 cssClass = 'sc-intertitle';
-                                // .sc-intertitle CSS padding handles the 1-line gap after
+                                // .sc-intertitle::after handles the 1-line gap after
                             } else if (ALL_TRANSITIONS_AND_ACTIONS.includes(styleUpper) && styleUpper !== '' ) {
                                 let text = s.text.trim();
                                 // Action text before transition (if any)
@@ -1771,11 +1791,11 @@
                                 
                                 lines = formatTransition(styleUpper);
                                 cssClass = 'sc-transition';
-                                // .sc-transition CSS padding handles the 1-line gap before and after
+                                // .sc-transition::before and ::after handle the 1-line gap before and after
                             } else {
                                 lines = formatAction(s.text);
                                 cssClass = 'sc-action';
-                                // .sc-action CSS padding handles the 1-line gap after
+                                // .sc-action::after handles the 1-line gap after
                             }
                         }
                         
@@ -1789,7 +1809,7 @@
                 const finalTags = c.tags.split(',').filter(t => t.trim().toUpperCase().includes('FADE OUT') || t.trim().toUpperCase().includes('CUT TO') || t.trim().toUpperCase().includes('DISSOLVE TO'));
                 finalTags.forEach(t => {
                     const lines = formatTransition(t);
-                    // .sc-transition CSS padding handles the 1-line gap before and after
+                    // .sc-transition::before and ::after handle the 1-line gap before and after
                     scriptHtml += buffer.insert(lines, 'sc-transition'); 
                 });
 
@@ -1978,6 +1998,9 @@
             saveData(); 
             renderGlobalTransitions(); 
         }
+
+        // --- FINAL NEXT STEP ---
+        // Nothing here.
     </script>
 </body>
 </html>
