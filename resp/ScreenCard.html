@@ -189,7 +189,11 @@
             font-family: 'Courier Prime', 'Courier New', monospace; font-size: 12pt; color: black; box-shadow: 0 0 20px rgba(0,0,0,0.2); 
             line-height: 1.2em;
         }
-        .sc-header { margin-top: 1.5em; margin-bottom: 1em; text-transform: uppercase; }
+        
+        /* Scene Header (e.g., INT. LOCATION - DAY) */
+        .sc-header { margin-top: 1.5em; margin-bottom: 1em; text-transform: uppercase; text-align: left; }
+        
+        /* General Action/Notes Block */
         .sc-action { margin-top: 1em; margin-bottom: 1em; } 
         
         /* Character and Dialogue Formatting */
@@ -226,10 +230,14 @@
         .sc-intertitle { text-align: center; margin: 3em 0; font-weight: bold; font-size: 14pt; } 
         .sc-action-inline { margin-top: 1em; margin-bottom: 1em; font-style: italic; } 
         
+        /* TRANSITION/CUT TO CLASS (RIGHT ALIGNED) */
+        .sc-transition { text-align: right; margin-top: 2em; margin-bottom: 1em; text-transform: uppercase; }
+
         /* UTILS */
         .hidden { display: none !important; }
 
         /* VIEW CONTAINER VISIBILITY FIX */
+        /* UI FIX: Only toggle visibility here, leave main and sidebar display untouched */
         .view-container { display: none; }
         .view-container.visible { display: block; }
         
@@ -246,6 +254,7 @@
             
             /* 2. Ensure the main container holding the script view is visible and takes full space */
             #main {
+                /* UI Fix: Ensure main is not padding or overflowing */
                 display: block !important;
                 width: 100% !important;
                 padding: 0 !important;
@@ -271,11 +280,25 @@
                 max-width: none !important; /* Allow content to span the paper width */
                 width: 100% !important; 
                 margin: 0 !important; 
-                padding: 1in !important; /* Standard print margin */
+                padding: 1in 1in 1in 1.5in !important; /* Top/Bottom: 1in, Right: 1in, Left: 1.5in (Standard margin) */
                 background: white !important; 
                 color: black !important;
                 font-size: 12pt !important;
             }
+            
+            /* 5. Force the scene number to 1.5in margin for the left column area */
+            #script-content > div:first-child {
+                text-align: left !important;
+                margin-left: -0.5in !important; /* Pushes it slightly past the 1in print margin */
+            }
+            
+            /* 6. Ensure dialogue elements are using inches for precise positioning */
+            .sc-character-block { margin-left: 3.5in !important; margin-right: 3.5in !important; } 
+            .sc-parenthetical-line { margin-left: 2.75in !important; margin-right: 2.75in !important; }
+            .sc-dialog { margin-left: 1.5in !important; margin-right: 1.5in !important; }
+            
+            /* 7. Ensure transitions are right-aligned from the 1in right margin */
+            .sc-transition { text-align: right !important; margin-right: 0 !important; }
         }
     </style>
 </head>
@@ -563,26 +586,19 @@
             
             document.querySelectorAll('.view-container').forEach(el => el.classList.remove('visible'));
             
-            // Only hide the sidebar/main containers if we are entering a modal/full view
-            if (viewName === 'script' || viewName === 'storyboard') {
-                 // Forcing the main/sidebar elements to be temporarily hidden, which is 
-                 // necessary because the print view expects only script-view to be present
-                 // But we must NOT use !important here for screen view.
-            }
+            // UI FIX: Removed conditional sidebar display from here, relying solely on
+            // the view-container visibility toggle and CSS media print rules.
 
             if (viewName === 'editor') { 
-                document.getElementById('sidebar').style.display = 'flex';
                 document.getElementById('editor-view').classList.add('visible'); 
                 if (activeCardId) loadEditor(activeCardId, false);
                 renderList(); 
             }
             else if (viewName === 'storyboard') { 
-                document.getElementById('sidebar').style.display = 'none';
                 document.getElementById('storyboard-view').classList.add('visible'); 
                 renderStoryboard(); 
             }
             else if (viewName === 'script') { 
-                document.getElementById('sidebar').style.display = 'none';
                 document.getElementById('script-view').classList.add('visible'); 
                 generateScript(); 
             }
@@ -1479,7 +1495,10 @@
             let lineCount = 0;
 
             const insertPageBreak = () => {
-                html += `<div style="page-break-after: always;"></div>`;
+                // Page breaks only if content exists
+                if (lineCount > 0) {
+                    html += `<div style="page-break-after: always;"></div>`;
+                }
                 lineCount = 0;
             };
             
@@ -1499,27 +1518,36 @@
                 const lines = getElementLineCount('transition', t);
                 if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
                 
-                html += `<div class="sc-header" style="text-align: right; text-decoration: none;">${t}</div>`;
+                // Use new right-aligned transition class
+                html += `<div class="sc-transition">${t}</div>`;
                 lineCount += lines;
             });
             
             // --- 3. SCENES ---
             cards.forEach(c => {
                 
+                // LINE COUNT CHECK BEFORE STARTING SCENE
+                const headerLines = getElementLineCount('header');
+                const sceneNumLines = 1;
+                const notesLines = c.notes ? getElementLineCount('notes', c.notes) : 0;
+                
+                if (lineCount > 0 && (lineCount + headerLines + sceneNumLines + notesLines) > MAX_LINES_PER_PAGE) {
+                    insertPageBreak();
+                }
+
                 // Insert Scene Number (Left Aligned)
                 html += `<div style="text-align: left; margin-top: 1.5em; margin-bottom: 0.5em; font-weight: bold;">${c.sceneNumber}</div>`;
                 lineCount += 1; 
 
                 // SCENE HEADER
-                const headerLines = getElementLineCount('header');
-                if (lineCount + headerLines > MAX_LINES_PER_PAGE) insertPageBreak();
                 html += `<div class="sc-header" style="margin-top: 0.5em;">${c.header}</div>`; 
                 lineCount += headerLines;
                 
                 // OPENING ACTION / NOTES
                 if(c.notes) {
-                    const notesLines = getElementLineCount('notes', c.notes);
-                    if (lineCount + notesLines > MAX_LINES_PER_PAGE) insertPageBreak();
+                    // Recheck line count for just the notes block if it's the first element
+                    if (lineCount > 0 && lineCount + notesLines > MAX_LINES_PER_PAGE) insertPageBreak();
+                    
                     html += `<div class="sc-action">${c.notes}</div>`;
                     lineCount += notesLines;
                 }
@@ -1592,7 +1620,8 @@
                                 if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
                                 
                                 if (s.text) html += `<div class="sc-action-inline">${s.text}</div>`; 
-                                html += `<div class="sc-header" style="text-align: right; text-decoration: none; margin-top: 1em;">${styleUpper}.</div>`;
+                                // Use new right-aligned transition class
+                                html += `<div class="sc-transition">${styleUpper}.</div>`;
                             } else {
                                 lines = getElementLineCount('action', s.text);
                                 if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
@@ -1610,11 +1639,12 @@
                     const lines = getElementLineCount('transition', t);
                     if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
                     
-                    html += `<div class="sc-header" style="text-align: right; text-decoration: none; margin-top: 2em;">${t.trim().toUpperCase()}.</div>`;
+                    // Use new right-aligned transition class
+                    html += `<div class="sc-transition" style="margin-top: 2em;">${t.trim().toUpperCase()}.</div>`;
                     lineCount += lines;
                 });
 
-                if (lineCount > 0) insertPageBreak(); 
+                // NO hard break at end of loop to prevent trailing blank pages
             });
             document.getElementById('script-content').innerHTML = html;
         }
