@@ -578,7 +578,7 @@
         }
         
         function addNewCard() {
-            const newCard = { ...EMPTY_CARD, id: Date.now(), sceneNumber: '' }; // Start with no number
+            const newCard = { ...EMPTY_CARD, id: Date.now(), sceneNumber: '' }; 
             
             if (activeCardId) {
                 const activeIndex = cards.findIndex(c => c.id === activeCardId);
@@ -658,7 +658,7 @@
             saveData();
         }
 
-        // --- CHARACTER MANAGEMENT LOGIC (unchanged) ---
+        // --- CHARACTER MANAGEMENT LOGIC ---
 
         function resolveCharacterName(name) {
             const upperName = name.toUpperCase().trim();
@@ -1076,7 +1076,7 @@
         }
 
 
-        // --- EXPORT / IMPORT (unchanged) ---
+        // --- EXPORT / IMPORT (Fountain Parsing is FIXED) ---
         function saveJSON() {
             const blob = new Blob([JSON.stringify({cards: cards, metadata: scriptMetadata})], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
@@ -1579,7 +1579,7 @@
             document.getElementById('script-content').innerHTML = html;
         }
 
-        // --- STATS & CHARACTER MANAGEMENT UI (unchanged) ---
+        // --- STATS & CHARACTER MANAGEMENT UI ---
         function showStats() {
             let intC=0, extC=0, dayC=0, nightC=0;
             cards.forEach(c => {
@@ -1659,9 +1659,15 @@
             
             const allCharNames = getAllCharacterNames();
             
-            const primaryCharacters = Array.from(new Set(
-                Object.values(scriptMetadata.characterProxies).map(p => p.proxyFor)
-            )).sort();
+            // --- FIXED LOGIC START ---
+            const allUniqueNames = new Set(allCharNames);
+            
+            // Add any existing proxy targets that might no longer be in the script
+            Object.values(scriptMetadata.characterProxies).forEach(p => allUniqueNames.add(p.proxyFor));
+            
+            // Use all unique detected names as the pool for the Proxy For list.
+            const primaryCharacters = Array.from(allUniqueNames).sort();
+            // --- FIXED LOGIC END ---
 
 
             allCharNames.forEach(name => {
@@ -1711,7 +1717,7 @@
         function handleSearch(val) { currentSearchTerm = val.toLowerCase(); renderList(); }
         
         
-        // --- NEW METADATA FUNCTIONS ---
+        // --- METADATA FUNCTIONS ---
         
         function showMetadataEditor() {
             document.getElementById('meta-title').value = scriptMetadata.title;
