@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SceneCard Writer v6.14 (Scene Numbering)</title>
+    <title>SceneCard Writer v6.15 (Metadata Editor)</title>
     <style>
         /* --- THEME VARIABLES --- */
         :root { 
@@ -233,7 +233,7 @@
         .view-container.visible { display: block; }
         
         /* STATS MODAL STYLES */
-        #stats-modal, #char-modal {
+        #stats-modal, #char-modal, #metadata-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center;
             z-index: 1000;
@@ -265,6 +265,7 @@
             <button class="tool-btn" onclick="switchView('storyboard')">📌 Board</button>
             <button class="tool-btn" onclick="switchView('script')">🖨️ Script View</button>
             <button class="tool-btn" onclick="showCharacterManagement()">🎭 Characters</button>
+            <button class="tool-btn" onclick="showMetadataEditor()">📝 Metadata</button> 
             <input type="file" id="file-input" accept=".json,.fountain,.txt" class="hidden" onchange="handleFileUpload(this)">
         </div>
         
@@ -378,10 +379,34 @@
         </div>
     </div>
 
+    <div id="metadata-modal" onclick="this.style.display='none'">
+        <div class="stats-box" onclick="event.stopPropagation()" style="width: 450px;">
+            <h2 style="margin-top:0">📝 Script Metadata</h2>
+            <p>Manage the **Title**, **Author**, and **Global Transitions** that appear on the title page and before the first scene.</p>
+            
+            <div class="field-group" style="margin-bottom: 15px;">
+                <label>Title</label>
+                <input type="text" id="meta-title" oninput="updateMetadata('title', this.value)">
+            </div>
+            
+            <div class="field-group" style="margin-bottom: 15px;">
+                <label>Author</label>
+                <input type="text" id="meta-author" oninput="updateMetadata('author', this.value)">
+            </div>
+            
+            <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;">
+
+            <label>Global Transitions (e.g., FADE IN:)</label>
+            <ul id="globalTransitionList" style="list-style: none; padding: 0; margin: 5px 0;"></ul>
+            <button onclick="addGlobalTransition()" style="margin-top:10px; cursor:pointer;">+ Add Transition</button>
+            
+            <button onclick="document.getElementById('metadata-modal').style.display='none'" style="width:100%; margin-top:20px; padding:10px;">Done</button>
+        </div>
+    </div>
+
     <script>
         // --- STATE ---
         let cards = [];
-        // UPDATE: Added sceneNumber field
         const EMPTY_CARD = { id: Date.now(), header: 'INT. NEW SCENE - DAY', location: 'NEW SCENE', chars: '', props: '', notes: '', tags: '', sequence: [], montage: [], sceneNumber: '' };
         let scriptMetadata = { title: 'UNTITLED SCREENPLAY', author: '', transitions: [], characterProxies: {} }; 
         let activeCardId = null;
@@ -461,7 +486,7 @@
             }
             if (theme === 'dark') document.body.classList.add('dark-mode');
             
-            renumberScenes(); // NEW: Run numbering on load
+            renumberScenes(); 
             updateCharacterList();
             renderList();
         };
@@ -534,11 +559,11 @@
 
             if (parts.length >= 2) {
                 let locationPart = parts[0];
-                const prefixRegex = /^(INT|EXT|I\/E|INT\/EXT|EST|I\/E)\.\s*/;
+                const prefixRegex = /^(INT|EXT|EST|I\/E|INT\/EXT)\.\s*/;
                 locationPart = locationPart.replace(prefixRegex, '').trim();
                 return locationPart;
             } else if (parts.length === 1) {
-                const prefixRegex = /^(INT|EXT|I\/E|INT\/EXT|EST|I\/E)\.\s*/;
+                const prefixRegex = /^(INT|EXT|EST|I\/E|INT\/EXT)\.\s*/;
                 return upperHeader.replace(prefixRegex, '').trim();
             }
             return upperHeader;
@@ -562,7 +587,7 @@
                 cards.push(newCard);
             }
             
-            renumberScenes(); // Rerender numbers after insertion
+            renumberScenes(); 
             activeCardId = newCard.id;
             switchView('editor'); 
             saveData(); 
@@ -584,11 +609,9 @@
             if(card) { card[field] = value; saveData(); }
         }
         
-        // --- NEW SCENE NUMBERING LOGIC ---
+        // --- SCENE NUMBERING LOGIC ---
 
         function renumberScenes() {
-            // Step 1: Initialize numbering structure
-            // Collect all current scene numbers and their primary integer parts
             const currentNumbers = cards.map(c => c.sceneNumber);
             const primaryNumbers = new Set(
                 currentNumbers
@@ -598,7 +621,6 @@
 
             let nextPrimaryNumber = primaryNumbers.size > 0 ? Math.max(...primaryNumbers) + 1 : 1;
 
-            // Step 2: Ensure all scenes have a primary number assigned first (if they didn't have one)
             cards.forEach(card => {
                 if (!parseInt(card.sceneNumber)) {
                     card.sceneNumber = nextPrimaryNumber.toString();
@@ -608,7 +630,6 @@
                 }
             });
 
-            // Step 3: Second Pass for A/B/C numbering on insertions
             for (let i = 1; i < cards.length; i++) {
                 const current = cards[i];
                 const previous = cards[i - 1];
@@ -616,22 +637,18 @@
                 const primaryCurrent = parseInt(current.sceneNumber);
                 const primaryPrev = parseInt(previous.sceneNumber);
 
-                // If the scene has been inserted and has the same number as the previous one, use A/B numbering
                 if (primaryCurrent === primaryPrev) {
                     const base = primaryPrev;
                     let suffix = 'A';
                     
-                    // Look back to find the last used suffix
                     for (let j = i - 1; j >= 0; j--) {
                         if (cards[j].sceneNumber.startsWith(base.toString())) {
                             const lastSuffix = cards[j].sceneNumber.replace(base.toString(), '');
                             if (lastSuffix) {
-                                // Increment the suffix (A -> B, B -> C, etc.)
                                 suffix = String.fromCharCode(lastSuffix.charCodeAt(0) + 1);
                                 break;
                             }
                         } else if (parseInt(cards[j].sceneNumber) < base) {
-                            // Hit a lower primary number, so we start over at 'A'
                             break;
                         }
                     }
@@ -707,7 +724,7 @@
                 document.getElementById('editor').classList.add('hidden');
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('screen-time-estimate').innerHTML = '';
-                document.getElementById('scene-number-display').innerText = ''; // NEW: Clear number
+                document.getElementById('scene-number-display').innerText = ''; 
                 return;
             }
 
@@ -715,7 +732,6 @@
             document.getElementById('editor').classList.remove('hidden');
             ['header', 'location', 'chars', 'props', 'notes', 'tags'].forEach(f => document.getElementById('inp-' + f).value = card[f]);
             
-            // NEW: Display the scene number
             document.getElementById('scene-number-display').innerText = `#${card.sceneNumber}`;
             
             toggleMontageEditor(card.header); 
@@ -748,13 +764,10 @@
             let totalActionWords = 0;
             let totalDialogueWords = 0;
 
-            // 1. Scene Header (1 line + 1 blank line)
             pageEquivalent += (2 / LINES_PER_PAGE); 
             
-            // 2. Opening Action / Notes
             totalActionWords += countWords(card.notes);
 
-            // 3. Sequence Analysis
             card.sequence.forEach(s => {
                 if (s.type === 'Action') {
                     totalActionWords += countWords(s.text);
@@ -767,12 +780,10 @@
                 }
             });
 
-            // 4. Montage Analysis
             if (card.header.toUpperCase().startsWith('MONTAGE')) {
                 pageEquivalent += (card.montage.length / 27); 
             }
 
-            // 5. Convert Words to Page Equivalent (Weighted)
             const actionPages = totalActionWords / ACTION_WORDS_PER_PAGE; 
             const dialoguePages = totalDialogueWords / DIALOGUE_WORDS_PER_PAGE; 
             
@@ -936,7 +947,7 @@
                 activeCardId = null; 
                 document.getElementById('editor').classList.add('hidden'); 
                 document.getElementById('empty-state').classList.remove('hidden');
-                renumberScenes(); // NEW: Renumber after deletion
+                renumberScenes(); 
                 saveData(); 
             } 
         }
@@ -1014,7 +1025,6 @@
                 if(currentSearchTerm && !search.includes(currentSearchTerm)) return;
                 const li = document.createElement('li');
                 li.className = `card-item ${getColorClass(card.header)} ${card.id === activeCardId ? 'active' : ''}`;
-                // Display the scene number in the sidebar
                 li.innerHTML = `
                     <span style="font-size: 0.9em; font-weight: bold; color: #f1c40f; margin-right: 5px;">#${card.sceneNumber || 'N/A'}</span>
                     <strong>${card.header}</strong><br>
@@ -1037,7 +1047,7 @@
             const i = cards[f]; 
             cards.splice(f, 1); 
             cards.splice(t, 0, i); 
-            renumberScenes(); // Rerender numbers after reordering
+            renumberScenes(); 
             saveData(); 
             if(currentView==='editor') renderList(); 
             else renderStoryboard(); 
@@ -1125,8 +1135,7 @@
                 }
                 
                 const finalTags = c.tags.split(',').filter(t => t.trim().toUpperCase().includes('FADE OUT') || t.trim().toUpperCase().includes('CUT TO') || t.trim().toUpperCase().includes('DISSOLVE TO'));
-                finalTags.forEach(t => f += `${t.trim().toUpperCase()}.
-        \n\n`);
+                finalTags.forEach(t => f += `${t.trim().toUpperCase()}.\n\n`);
             });
             const blob = new Blob([f], {type: 'text/plain'});
             const url = URL.createObjectURL(blob);
@@ -1153,7 +1162,7 @@
                         }
                         
                         cards.forEach(card => {
-                            if (!card.sceneNumber) card.sceneNumber = ''; // New migration for scene number
+                            if (!card.sceneNumber) card.sceneNumber = ''; 
                             if (card.dialog && !card.sequence) {
                                 card.sequence = card.dialog.map(d => ({ type: 'Character', content: d.character, text: d.text, context: '', contd: false, parenthetical: '' }));
                                 delete card.dialog;
@@ -1178,7 +1187,7 @@
                     successMessage = "Imported " + cards.length + " scenes from text/fountain.";
                 }
                 
-                renumberScenes(); // NEW: Renumber newly loaded scenes
+                renumberScenes(); 
                 saveData(); 
 
                 if (cards.length > 0) {
@@ -1269,7 +1278,6 @@
                     flushActionBuffer(true); 
                     const headerText = trim.replace(/^\./, '').trim();
                     const locationText = extractLocation(headerText);
-                    // NEW: Initialize sceneNumber as empty for renumberScenes to handle
                     currentCard = { id: Date.now() + Math.random(), header: headerText, location: locationText, chars:'', props:'', notes:'', tags:'', sequence:[], montage:[], sceneNumber: '' }; 
                     cards.push(currentCard);
                     actionBuffer = []; 
@@ -1458,7 +1466,7 @@
             // --- 3. SCENES ---
             cards.forEach(c => {
                 
-                // NEW: Insert Scene Number (Left Aligned)
+                // Insert Scene Number (Left Aligned)
                 html += `<div style="text-align: left; margin-top: 1.5em; margin-bottom: 0.5em; font-weight: bold;">${c.sceneNumber}</div>`;
                 lineCount += 1; 
 
@@ -1701,6 +1709,57 @@
         }
         
         function handleSearch(val) { currentSearchTerm = val.toLowerCase(); renderList(); }
+        
+        
+        // --- NEW METADATA FUNCTIONS ---
+        
+        function showMetadataEditor() {
+            document.getElementById('meta-title').value = scriptMetadata.title;
+            document.getElementById('meta-author').value = scriptMetadata.author;
+            renderGlobalTransitions();
+            document.getElementById('metadata-modal').style.display = 'flex';
+        }
+
+        function updateMetadata(field, value) {
+            scriptMetadata[field] = value;
+            saveData();
+        }
+
+        function renderGlobalTransitions() {
+            const list = document.getElementById('globalTransitionList');
+            list.innerHTML = '';
+            
+            scriptMetadata.transitions.forEach((t, i) => {
+                const li = document.createElement('li');
+                li.style.cssText = 'padding: 8px 0; border-bottom: 1px solid var(--border); display: flex; align-items: center;';
+                
+                li.innerHTML = `
+                    <input type="text" value="${t}" style="flex-grow: 1; border: none; background: transparent; padding: 0 8px;" 
+                        oninput="updGlobalTransition(${i}, this.value)">
+                    <button onclick="delGlobalTransition(${i})" style="color: #e74c3c; background: none; border: none; cursor: pointer; padding: 5px;">Delete</button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function addGlobalTransition() {
+            const newTransition = 'FADE IN:';
+            scriptMetadata.transitions.push(newTransition);
+            saveData();
+            renderGlobalTransitions();
+        }
+
+        function updGlobalTransition(i, v) { 
+            scriptMetadata.transitions[i] = v.toUpperCase().trim(); 
+            saveData(); 
+            renderGlobalTransitions(); 
+        }
+
+        function delGlobalTransition(i) { 
+            scriptMetadata.transitions.splice(i, 1); 
+            saveData(); 
+            renderGlobalTransitions(); 
+        }
     </script>
 </body>
 </html>
