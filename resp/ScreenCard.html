@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SceneCard Writer v6.22 (Fixed Pitch - Final Spacing)</title>
+    <title>SceneCard Writer v6.23 (Fixed Pitch - Final Spacing)</title>
     <style>
         /* --- THEME VARIABLES --- */
         :root { 
@@ -230,7 +230,9 @@
 
         /* CRITICAL FIX: Ensure every line element has the exact, necessary line height */
         /* Target all direct children of sc-page (which are the line elements) */
+        /* This selector targets the content blocks (sc-header, sc-dialog-block, sc-action, etc.) */
         #script-content > div:not(.sc-title-page) > div {
+            /* The dialogue block is now a single container that holds its own lines */
             white-space: pre; 
             margin: 0 !important; /* CRITICAL: Eliminate all default margins */
             padding: 0 !important; /* CRITICAL: Eliminate all padding from V6.20 */
@@ -239,16 +241,25 @@
             color: black;
         }
         
+        /* Ensure the lines *inside* the dialogue block still have the 1.2em line height */
+        .sc-dialog-block > div,
+        .sc-header > div,
+        .sc-intertitle > div,
+        .sc-montage-item > div
+        {
+            line-height: 1.2em !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
         /* --- CRITICAL PSEUDO-ELEMENT SPACING --- */
         
-        /* Target all content blocks that need a 1-line gap AFTER them. 
-        * Action block spacing is handled manually in JS using a blank line, 
-        * so we remove the .sc-action::after rule to prevent double spacing.
-        */
+        /* Target all single-block containers that need a 1-line gap AFTER them. */
+        /* Dialogue, Header, Intertitle, Montage Items are now single-line buffer insertions */
         .sc-header::after,
         .sc-intertitle::after,
         .sc-montage-item::after,
-        .sc-dialog-block::after /* FIX: Target the entire block container for spacing */
+        .sc-dialog-block::after /* FIX: Target the single block container for spacing */
         { 
             content: ''; 
             display: block; /* Make it a block element */
@@ -1354,7 +1365,7 @@
                 const trim = line.trim();
                 if(!trim) { flushActionBuffer(); return; } 
 
-                const trimUpper = trim.toUpperCase();
+                const trimUpper = line.toUpperCase().trim(); // Use line, not trim, for character checks later
                 
                 if (isTitlePage) {
                     if (headerRegex.test(trim) || trim.startsWith('.')) { 
@@ -1558,8 +1569,6 @@
                 this.pageCounter = 0;
             }
             
-            // Note: Spacing is handled by CSS ::after pseudo-elements OR explicit spacer lines.
-
             // Insert lines and handle overflow
             insert(formattedLines, elementClass, forceBreak = false) {
                 let html = '';
@@ -1568,39 +1577,50 @@
                     html += this.flush();
                 }
 
-                const linesRemaining = MAX_LINES_PER_PAGE - this.lines.length;
-                
-                // Determine if this block has a guaranteed CSS ::after spacer
-                const hasCssSpacer = 
+                // Elements relying on CSS for spacing must be wrapped as a single block
+                const usesCssSpacer = 
                     elementClass === 'sc-header' || 
                     elementClass === 'sc-intertitle' || 
                     elementClass === 'sc-montage-item' || 
                     elementClass === 'sc-dialog-block'; 
                 
-                // Determine if this block has a guaranteed CSS ::before spacer (Transitions)
-                const hasCssBeforeSpacer = elementClass === 'sc-transition';
-
+                const linesRemaining = MAX_LINES_PER_PAGE - this.lines.length;
                 let requiredLines = formattedLines.length;
-                if (hasCssSpacer) requiredLines += 1; // Count the ::after spacer line
-                if (hasCssBeforeSpacer) requiredLines += 1; // Count the ::before spacer line
+                
+                // Estimate required lines including implicit CSS spacers
+                if (usesCssSpacer) requiredLines += 1; 
+                if (elementClass === 'sc-transition') requiredLines += 2; // Before and After
 
                 
                 if (requiredLines > linesRemaining && this.lines.length > 0) {
                     html += this.flush();
                 }
                 
-                // Add lines to the current page 
-                for (let i = 0; i < formattedLines.length; i++) {
-                    const line = formattedLines[i];
+                // --- CRITICAL SPACING FIX v6.23 ---
+                if (usesCssSpacer) {
+                    // Wrap all formatted lines into one container. 
+                    // This container is the single item pushed to the buffer, and CSS `::after` applies to it ONCE.
+                    if (formattedLines.length === 0) return '';
                     
-                    // Check again in case the line itself is the 56th line on the page
-                    if (this.lines.length >= MAX_LINES_PER_PAGE) {
-                        html += this.flush();
+                    const wrappedContent = formattedLines.map(line => `<div>${line}</div>`).join('\n');
+                    const singleBlock = `<div class="${elementClass}">${wrappedContent}</div>`;
+                    
+                    // Check for single line overflow after flushing
+                    if (this.lines.length >= MAX_LINES_PER_PAGE) { html += this.flush(); }
+                    
+                    this.lines.push(singleBlock);
+
+                } else {
+                    // For elements without a CSS spacer (Action, Transition, explicit Spacers), 
+                    // insert them one by one, wrapped in their own div.
+                    for (let i = 0; i < formattedLines.length; i++) {
+                        // Check for page overflow
+                        if (this.lines.length >= MAX_LINES_PER_PAGE) { html += this.flush(); }
+                        
+                        const line = formattedLines[i];
+                        const content = `<div class="${elementClass}">${line}</div>`;
+                        this.lines.push(content);
                     }
-                    
-                    // The line itself is the content. Wrap it.
-                    const content = `<div class="${elementClass}">${line}</div>`;
-                    this.lines.push(content);
                 }
                 
                 return html;
@@ -1631,7 +1651,8 @@
 
         // Helper to insert a guaranteed blank line element
         function formatSpacer() {
-            return [""]; // An empty string in a 1.2em div guarantees a blank line
+            // Returns a list with a single empty string, which will be wrapped in <div class="sc-action-spacer"></div>
+            return [""]; 
         }
 
         // 1. Scene Header: INT. LOCATION - TIME
@@ -1701,7 +1722,7 @@
                 lines.push(padString(line, DIALOGUE_COL, CHAR_WIDTH));
             });
 
-            // Spacing is handled by .sc-dialog-block::after
+            // Spacing is handled by .sc-dialog-block::after (because it's now wrapped)
             return lines;
         }
 
@@ -1754,14 +1775,14 @@
                 
                 // 3a. SCENE HEADER
                 const headerLines = formatHeader(`${c.sceneNumber}. ${c.header}`);
-                // .sc-header::after handles the 1-line gap after
+                // .sc-header::after handles the 1-line gap after (using the new single-block insertion)
                 scriptHtml += buffer.insert(headerLines, 'sc-header'); 
 
                 // 3b. OPENING ACTION / NOTES
                 if(c.notes) {
                     const actionLines = formatAction(c.notes);
+                    // Action is inserted line-by-line, and we manually add the spacer
                     scriptHtml += buffer.insert(actionLines, 'sc-action'); 
-                    // FIX 1: Explicitly insert a blank line after the action block
                     scriptHtml += buffer.insert(formatSpacer(), 'sc-action-spacer');
                 }
 
@@ -1769,7 +1790,7 @@
                 if (c.header.toUpperCase().startsWith('MONTAGE') && c.montage && c.montage.length > 0) {
                     c.montage.forEach(item => {
                         const lines = formatMontageItem(item);
-                        // .sc-montage-item::after handles the 1-line gap after
+                        // .sc-montage-item::after handles the 1-line gap after (using the new single-block insertion)
                         scriptHtml += buffer.insert(lines, 'sc-montage-item'); 
                     });
                 } 
@@ -1783,35 +1804,34 @@
                         if (s.type === 'Character') {
                             lines = formatDialogue(s);
                             cssClass = 'sc-dialog-block';
-                            // .sc-dialog-block::after handles the 1-line gap after
+                            // .sc-dialog-block::after handles the 1-line gap after (using the new single-block insertion)
                         } else if (s.type === 'Action') {
                             const styleUpper = (s.style || '').toUpperCase();
                             
                             if (styleUpper === 'TITLE CARD' || styleUpper === 'INTERTITLE') {
                                 lines = formatTitleCard(s.text);
                                 cssClass = 'sc-intertitle';
-                                // .sc-intertitle::after handles the 1-line gap after
+                                // .sc-intertitle::after handles the 1-line gap after (using the new single-block insertion)
                             } else if (ALL_TRANSITIONS_AND_ACTIONS.includes(styleUpper) && styleUpper !== '' ) {
                                 let text = s.text.trim();
                                 // Action text before transition (if any)
                                 if (text) { 
                                     scriptHtml += buffer.insert(formatAction(text), 'sc-action'); 
-                                    // Manually insert spacer before transition
                                     scriptHtml += buffer.insert(formatSpacer(), 'sc-action-spacer');
                                 }
                                 
                                 lines = formatTransition(styleUpper);
                                 cssClass = 'sc-transition';
-                                // .sc-transition::before and ::after handle the 1-line gap before and after
+                                // .sc-transition::before and ::after handle the 1-line gap before and after (inserted line-by-line)
                             } else {
                                 lines = formatAction(s.text);
                                 cssClass = 'sc-action';
                                 scriptHtml += buffer.insert(lines, cssClass);
-                                // FIX 1: Explicitly insert a blank line after the action block
                                 scriptHtml += buffer.insert(formatSpacer(), 'sc-action-spacer');
                             }
                         }
                         
+                        // Only insert if lines were generated AND it wasn't an Action/Action-Spacer (which are handled inside the block)
                         if (lines.length > 0 && cssClass !== 'sc-action' && cssClass !== 'sc-action-spacer') {
                             scriptHtml += buffer.insert(lines, cssClass);
                         }
