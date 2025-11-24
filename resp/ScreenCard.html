@@ -25,6 +25,7 @@
         
         /* --- LAYOUT --- */
         #sidebar { width: 300px; background: var(--sidebar); color: white; display: flex; flex-direction: column; border-right: 1px solid #1a252f; flex-shrink: 0; transition: width 0.3s; }
+        /* RESTORED MAIN VIEW STYLES */
         #main { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
         
         /* --- SIDEBAR COMPONENTS --- */
@@ -232,48 +233,45 @@
         .view-container { display: none; }
         .view-container.visible { display: block; }
         
-        /* --- UPDATED PRINT STYLES (WITH !IMPORTANT) --- */
+        /* --- FINAL PRINT STYLES --- */
         @media print {
-            body, #main, #sidebar, #script-view { 
-                /* Force all potential scroll containers to behave */
-                display: block !important; 
-                height: auto !important; 
-                overflow: visible !important; 
-                width: 100% !important;
-                position: static !important;
-            }
-
+            /* 1. Hide the entire interface *except* for the script view */
             #sidebar, 
-            #main { 
-                /* Ensure these two layout containers are completely hidden */
-                display: none !important;
-                visibility: hidden !important; 
-            }
-            
-            #script-view {
-                /* Make script view the sole visible container */
-                display: block !important; 
-                position: absolute !important; 
-                left: 0 !important; 
-                top: 0 !important; 
-                padding: 0 !important; 
-                margin: 0 !important;
-                z-index: 9999 !important; /* Bring to front just in case */
-            }
-            
-            /* HIDE THE BUTTON */
+            #editor-view, 
+            #storyboard-view,
             #print-button {
                 display: none !important;
                 visibility: hidden !important; 
             }
             
-            /* Ensure the content is styled for a print page */
+            /* 2. Ensure the main container holding the script view is visible and takes full space */
+            #main {
+                display: block !important;
+                width: 100% !important;
+                padding: 0 !important;
+                overflow: visible !important;
+                position: absolute !important; /* Forces it to occupy the full page extent */
+                left: 0 !important;
+                top: 0 !important;
+                z-index: 9999 !important;
+            }
+
+            /* 3. Ensure the script view itself is visible and correctly positioned */
+            #script-view {
+                display: block !important; 
+                width: 100% !important;
+                height: auto !important;
+                padding: 0 !important; 
+                margin: 0 !important;
+            }
+            
+            /* 4. Ensure the content area looks like a clean script page */
             #script-content { 
                 box-shadow: none !important; 
+                max-width: none !important; /* Allow content to span the paper width */
                 width: 100% !important; 
-                max-width: none !important; 
                 margin: 0 !important; 
-                padding: 1in !important; 
+                padding: 1in !important; /* Standard print margin */
                 background: white !important; 
                 color: black !important;
                 font-size: 12pt !important;
@@ -564,18 +562,27 @@
             currentView = viewName;
             
             document.querySelectorAll('.view-container').forEach(el => el.classList.remove('visible'));
-            document.getElementById('sidebar').style.display = (viewName === 'editor') ? 'flex' : 'none';
             
+            // Only hide the sidebar/main containers if we are entering a modal/full view
+            if (viewName === 'script' || viewName === 'storyboard') {
+                 // Forcing the main/sidebar elements to be temporarily hidden, which is 
+                 // necessary because the print view expects only script-view to be present
+                 // But we must NOT use !important here for screen view.
+            }
+
             if (viewName === 'editor') { 
+                document.getElementById('sidebar').style.display = 'flex';
                 document.getElementById('editor-view').classList.add('visible'); 
                 if (activeCardId) loadEditor(activeCardId, false);
                 renderList(); 
             }
             else if (viewName === 'storyboard') { 
+                document.getElementById('sidebar').style.display = 'none';
                 document.getElementById('storyboard-view').classList.add('visible'); 
                 renderStoryboard(); 
             }
             else if (viewName === 'script') { 
+                document.getElementById('sidebar').style.display = 'none';
                 document.getElementById('script-view').classList.add('visible'); 
                 generateScript(); 
             }
