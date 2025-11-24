@@ -232,43 +232,51 @@
         .view-container { display: none; }
         .view-container.visible { display: block; }
         
-        /* --- NEW PRINT STYLES --- */
+        /* --- UPDATED PRINT STYLES (WITH !IMPORTANT) --- */
         @media print {
-            body { 
-                /* Reset overall body layout */
-                display: block; 
-                height: auto; 
+            body, #main, #sidebar, #script-view { 
+                /* Force all potential scroll containers to behave */
+                display: block !important; 
+                height: auto !important; 
                 overflow: visible !important; 
-                background: white;
+                width: 100% !important;
+                position: static !important;
             }
+
             #sidebar, 
             #main { 
-                display: none !important; /* Hide the sidebar and the main container */
+                /* Ensure these two layout containers are completely hidden */
+                display: none !important;
+                visibility: hidden !important; 
             }
-            /* Show only the script view */
+            
             #script-view {
+                /* Make script view the sole visible container */
                 display: block !important; 
-                position: absolute; 
-                left: 0; 
-                top: 0; 
-                width: 100%; 
-                height: auto;
-                padding: 0; 
-                margin: 0;
+                position: absolute !important; 
+                left: 0 !important; 
+                top: 0 !important; 
+                padding: 0 !important; 
+                margin: 0 !important;
+                z-index: 9999 !important; /* Bring to front just in case */
             }
-            /* Hide the Print button itself */
+            
+            /* HIDE THE BUTTON */
             #print-button {
                 display: none !important;
+                visibility: hidden !important; 
             }
-            /* Ensure the script content uses standard print paper sizing */
+            
+            /* Ensure the content is styled for a print page */
             #script-content { 
                 box-shadow: none !important; 
-                width: 100%; 
-                max-width: none; 
-                margin: 0; 
-                padding: 1in; /* Standard margin for print documents */
-                background: white; 
-                color: black;
+                width: 100% !important; 
+                max-width: none !important; 
+                margin: 0 !important; 
+                padding: 1in !important; 
+                background: white !important; 
+                color: black !important;
+                font-size: 12pt !important;
             }
         }
     </style>
