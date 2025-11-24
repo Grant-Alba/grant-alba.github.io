@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SceneCard Writer v6.9 (Total Time)</title>
+    <title>SceneCard Writer v6.12 (Page Breaks & Character)</title>
     <style>
         /* --- THEME VARIABLES --- */
         :root { 
@@ -223,7 +223,7 @@
         .view-container.visible { display: block; }
         
         /* STATS MODAL STYLES */
-        #stats-modal {
+        #stats-modal, #char-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center;
             z-index: 1000;
@@ -254,6 +254,7 @@
             <button class="tool-btn" onclick="showStats()">📊 Stats</button>
             <button class="tool-btn" onclick="switchView('storyboard')">📌 Board</button>
             <button class="tool-btn" onclick="switchView('script')">🖨️ Script View</button>
+            <button class="tool-btn" onclick="showCharacterManagement()">🎭 Characters</button>
             <input type="file" id="file-input" accept=".json,.fountain,.txt" class="hidden" onchange="handleFileUpload(this)">
         </div>
         
@@ -344,24 +345,66 @@
             <button onclick="document.getElementById('stats-modal').style.display='none'" style="width:100%; margin-top:20px; padding:10px;">Close</button>
         </div>
     </div>
+    
+    <div id="char-modal" onclick="this.style.display='none'">
+        <div class="stats-box" onclick="event.stopPropagation()" style="width: 600px;">
+            <h2 style="margin-top:0">🎭 Character Management</h2>
+            <p>Use the **Proxy For** dropdown to merge generic or temporary character names into their final name. This helps with consistency and statistics.</p>
+            
+            <table style="width: 100%; font-size: 0.9em; margin-top: 15px;">
+                <thead>
+                    <tr>
+                        <th style="text-align: left; width: 25%;">Character Name</th>
+                        <th style="text-align: left; width: 20%;">Proxy For</th>
+                        <th style="text-align: left; width: 50%;">Description / Notes</th>
+                    </tr>
+                </thead>
+                <tbody id="charManagementBody">
+                    </tbody>
+            </table>
+            
+            <button onclick="document.getElementById('char-modal').style.display='none'" style="width:100%; margin-top:20px; padding:10px;">Done</button>
+        </div>
+    </div>
 
     <script>
         // --- STATE ---
         let cards = [];
         const EMPTY_CARD = { id: Date.now(), header: 'INT. NEW SCENE - DAY', location: 'NEW SCENE', chars: '', props: '', notes: '', tags: '', sequence: [], montage: [] };
-        let scriptMetadata = { title: 'UNTITLED SCREENPLAY', author: '', transitions: [] }; 
+        // UPDATE: Add characterProxies to scriptMetadata
+        let scriptMetadata = { title: 'UNTITLED SCREENPLAY', author: '', transitions: [], characterProxies: {} }; 
         let activeCardId = null;
         let dragStartIndex;
         let currentSearchTerm = '';
         let currentView = 'editor'; 
         
         const ACTION_STYLES = [
-            { value: '', label: '' },
+            { value: '', label: 'Action Block' },
             { value: 'TITLE CARD', label: 'TITLE CARD' },
             { value: 'INTERTITLE', label: 'INTERTITLE' },
             { value: 'FADE IN', label: 'FADE IN' },
             { value: 'FADE OUT', label: 'FADE OUT' },
+            { value: 'CUT TO', label: 'CUT TO' },
+            { value: 'DISSOLVE TO', label: 'DISSOLVE TO' },
             { value: 'FADE TO BLACK', label: 'FADE TO BLACK' },
+            { value: 'END OF ACT', label: 'END OF ACT' },
+            { value: 'END OF SCENE', label: 'END OF SCENE' },
+            { value: 'A BEAT', label: 'A BEAT' },
+            { value: 'BEAT', label: 'BEAT' },
+            { value: 'INTERCUT', label: 'INTERCUT' }
+        ];
+
+        // Add common transitions and all-caps action elements to this list for parsing
+        const ALL_CAPS_ACTION_ELEMENTS = [
+            'FADE IN', 'FADE OUT', 'FADE TO BLACK', 'FADE TO WHITE',
+            'CUT TO', 'DISSOLVE TO', 'SMASH CUT TO', 'QUICK CUT TO',
+            'BACK TO SCENE', 'END OF ACT', 'BEGIN ACT', 'END OF SCENE',
+            'A BEAT', 'BEAT', 'CONTINUOUS', 'INTERCUT',
+        ];
+        
+        const ALL_TRANSITIONS_AND_ACTIONS = [
+            ...ACTION_STYLES.map(s => s.value.toUpperCase()).filter(v => v !== ''),
+            ...ALL_CAPS_ACTION_ELEMENTS.map(a => a.toUpperCase())
         ];
 
 
@@ -398,7 +441,13 @@
                     if (!card.location) { card.location = extractLocation(card.header); }
                 });
             }
-            if (savedMeta) scriptMetadata = JSON.parse(savedMeta);
+            if (savedMeta) {
+                scriptMetadata = JSON.parse(savedMeta);
+                // Ensure proxies object exists on load
+                if (!scriptMetadata.characterProxies) {
+                    scriptMetadata.characterProxies = {};
+                }
+            }
             if (theme === 'dark') document.body.classList.add('dark-mode');
             updateCharacterList();
             renderList();
@@ -514,19 +563,82 @@
             const card = cards.find(c => c.id === activeCardId);
             if(card) { card[field] = value; saveData(); }
         }
+        
+        // --- NEW CHARACTER MANAGEMENT LOGIC ---
 
-        function updateCharacterList() {
+        function resolveCharacterName(name) {
+            const upperName = name.toUpperCase().trim();
+            if (scriptMetadata.characterProxies[upperName]) {
+                // If it's a proxy, return the final name
+                return scriptMetadata.characterProxies[upperName].proxyFor;
+            }
+            // Otherwise, return the name itself
+            return upperName;
+        }
+
+        // Renamed and refactored function to populate all character names found in the script
+        function getAllCharacterNames() {
             const charSet = new Set();
             cards.forEach(c => {
-                c.chars.split(',').forEach(n => { if(n.trim()) charSet.add(n.trim()); });
+                c.chars.split(',').forEach(n => { if(n.trim()) charSet.add(n.trim().toUpperCase()); });
                 c.sequence && c.sequence.forEach(s => { 
-                    if (s.type === 'Character' && s.content.trim()) charSet.add(s.content.trim()); 
+                    if (s.type === 'Character' && s.content.trim()) charSet.add(s.content.trim().toUpperCase()); 
                 });
             });
+            return Array.from(charSet).sort();
+        }
+
+        // Function that updates the character management structure and datalist
+        function updateCharacterList() {
+            const allNames = getAllCharacterNames();
+            const newProxies = {};
+
+            // 1. Maintain descriptions and proxy associations for existing characters
+            allNames.forEach(name => {
+                const existing = scriptMetadata.characterProxies[name];
+                
+                // If the name is already mapped as a PROXY (e.g., WOMAN ONE -> KAERA), keep that mapping.
+                // If the name is a MAIN character, maintain its description.
+                if (existing) {
+                    newProxies[name] = existing;
+                } else {
+                    // Initialize new character names
+                    newProxies[name] = { proxyFor: name, description: '' };
+                }
+            });
+            
+            // 2. Clean up proxies for characters no longer in the script
+            for (const name in scriptMetadata.characterProxies) {
+                // Get the final resolved name for the character defined by the key 'name'
+                const targetName = scriptMetadata.characterProxies[name].proxyFor;
+                
+                // Check if the current name or its target is present in the script
+                const isPresent = allNames.includes(name) || allNames.includes(targetName);
+                
+                // Check if the current name is used as a proxy target by another name still in the script
+                const isUsedAsTarget = Object.values(newProxies).some(p => p.proxyFor === name && p.proxyFor !== name);
+
+                if (!isPresent && !isUsedAsTarget) {
+                    delete scriptMetadata.characterProxies[name];
+                }
+            }
+            
+            scriptMetadata.characterProxies = Object.keys(scriptMetadata.characterProxies).reduce((acc, key) => {
+                acc[key] = scriptMetadata.characterProxies[key];
+                return acc;
+            }, {});
+
+            // 3. Update the datalist for the editor inputs
             const dl = document.getElementById('character-list');
             dl.innerHTML = '';
-            charSet.forEach(char => { let opt = document.createElement('option'); opt.value = char; dl.appendChild(opt); });
+            
+            // List all unique resolved names (the actual character names) for use in input fields
+            const resolvedNames = new Set(Object.values(scriptMetadata.characterProxies).map(p => p.proxyFor));
+            resolvedNames.forEach(char => { let opt = document.createElement('option'); opt.value = char; dl.appendChild(opt); });
+
+            // Note: saveData is called at the end of this function via its call chain in window.onload
         }
+
 
         // --- EDITOR UI ---
         function loadEditor(id) {
@@ -939,8 +1051,9 @@
                             if (styleUpper === 'TITLE CARD' || styleUpper === 'INTERTITLE') {
                                 const prefix = styleUpper.startsWith('INTERTITLE') ? 'INTERTITLE' : 'TITLE CARD';
                                 f += `${prefix}: ${s.text}\n\n`; 
-                            } else if (styleUpper.includes('FADE') || styleUpper.includes('CUT')) {
-                                // Fountain formatting for transitions
+                            } else if (ALL_TRANSITIONS_AND_ACTIONS.includes(styleUpper)) {
+                                // Fountain formatting for transitions and special actions
+                                if (s.text) f += s.text + "\n"; // Print action text if present
                                 f += `${styleUpper}\n\n`; 
                             } else {
                                 f += s.text + "\n\n";
@@ -1022,28 +1135,26 @@
 
         function parseFountainImport(text) {
             cards = [];
-            scriptMetadata = { title: 'UNTITLED SCREENPLAY', author: '', transitions: [] }; 
+            scriptMetadata = { title: 'UNTITLED SCREENPLAY', author: '', transitions: [], characterProxies: {} }; 
             const lines = text.split(/\r?\n/);
             let currentCard = null;
             let isTitlePage = true;
             let actionBuffer = []; 
             
             const headerRegex = /^(INT\.|EXT\.|EST\.|I\/E|INT\/EXT|MONTAGE)/i; 
-            const transitionRegex = /^(FADE IN|FADE OUT|CUT TO|DISSOLVE TO|SMASH CUT TO)/i;
             const characterLineRegex = /^([A-Z0-9\s,.'"-]+)(\s+\(.+\))*\s*$/; 
-            const parentheticalRegex = /\(([^)]+)\)/g;
 
             const flushActionBuffer = (isSceneStart) => {
                 if (!currentCard || actionBuffer.length === 0) return;
                 
-                // Check if the last line in the buffer is one of the dropdown transitions
                 let style = '';
+                // Check only the last line for specific transition formatting
                 const lastLine = actionBuffer[actionBuffer.length - 1].toUpperCase().trim();
-                const matchedStyle = ACTION_STYLES.find(s => s.value.toUpperCase() === lastLine);
-
-                if (matchedStyle && matchedStyle.value !== '') {
-                    style = matchedStyle.value;
-                    actionBuffer.pop(); // Remove transition from action buffer if it's the only content
+                const matchedStyle = ALL_TRANSITIONS_AND_ACTIONS.find(s => s === lastLine); 
+                
+                if (matchedStyle && ['FADE IN', 'FADE OUT', 'CUT TO', 'DISSOLVE TO'].includes(matchedStyle)) {
+                    style = matchedStyle;
+                    actionBuffer.pop(); 
                 }
 
                 if (actionBuffer.length > 0 || style !== '') {
@@ -1067,8 +1178,12 @@
                 const trim = line.trim();
                 if(!trim) { flushActionBuffer(); return; } 
 
+                const trimUpper = trim.toUpperCase();
+
                 if (isTitlePage) {
-                    if (headerRegex.test(trim) || trim.startsWith('.')) { isTitlePage = false; } 
+                    if (headerRegex.test(trim) || trim.startsWith('.')) { 
+                        isTitlePage = false; 
+                    } 
                     else if (trim.includes(':') && trim.length < 50) {
                         const parts = trim.split(':');
                         const key = parts[0].trim().toLowerCase();
@@ -1076,7 +1191,13 @@
                         if (key === 'title') scriptMetadata.title = value;
                         else if (key === 'author') scriptMetadata.author = value;
                         return;
+                    } 
+                    else if (ALL_TRANSITIONS_AND_ACTIONS.includes(trimUpper)) {
+                        // Transitions on the title page go to metadata
+                        scriptMetadata.transitions.push(trimUpper);
+                        return;
                     }
+                    if (isTitlePage) return; // Skip if we are still processing the title page
                 }
                 
                 if(headerRegex.test(trim) || trim.startsWith('.')) {
@@ -1088,16 +1209,23 @@
                     actionBuffer = []; 
                 } 
                 
-                else if (transitionRegex.test(trim) && (cards.length === 0 || !currentCard)) {
-                    // Treat transitions before first scene as metadata
-                    scriptMetadata.transitions.push(trim);
-                }
                 else if (currentCard) {
                     const isMontageBlock = currentCard.header.toUpperCase().startsWith('MONTAGE');
                     const charMatch = trim.match(characterLineRegex); 
                     let lastItem = currentCard.sequence[currentCard.sequence.length - 1];
 
-                    if(charMatch && !isMontageBlock) {
+                    // *** CRITICAL CHECK: Is it a known ALL-CAPS Action/Transition element? ***
+                    if (ALL_TRANSITIONS_AND_ACTIONS.includes(trimUpper) && !isMontageBlock) {
+                        flushActionBuffer();
+                        currentCard.sequence.push({ 
+                            type: 'Action', 
+                            style: trimUpper, 
+                            text: '' 
+                        });
+                    }
+                    
+                    // Is it a character line?
+                    else if(charMatch && !isMontageBlock) {
                         flushActionBuffer(); 
                         
                         let context = '';
@@ -1111,8 +1239,7 @@
                             const content = match[1].trim();
                             const upperContent = content.toUpperCase();
                             
-                            if (upperContent === 'V.O.' || upperContent === 'V.O') context = 'V.O.';
-                            else if (upperContent === 'O.S.' || upperContent === 'O.S') context = 'O.S.';
+                            if (upperContent === 'V.O.' || upperContent === 'O.S.') context = upperContent.replace('.', '');
                             else if (upperContent.includes('CONT\'D')) contd = true;
                             else if (content.length > 0) parentheticals.push(content);
 
@@ -1132,9 +1259,9 @@
                         lastItem = currentCard.sequence[currentCard.sequence.length - 1]; 
                     } 
                     
-                    else if (trim.toUpperCase().startsWith('TITLE CARD:') || trim.toUpperCase().startsWith('INTERTITLE:')) {
+                    else if (trimUpper.startsWith('TITLE CARD:') || trimUpper.startsWith('INTERTITLE:')) {
                         flushActionBuffer(); 
-                        const prefix = trim.toUpperCase().startsWith('TITLE CARD:') ? 'TITLE CARD' : 'INTERTITLE';
+                        const prefix = trimUpper.startsWith('INTERTITLE:') ? 'INTERTITLE' : 'TITLE CARD';
                         const text = trim.substring(trim.indexOf(':') + 1).trim();
                         currentCard.sequence.push({ type: 'Action', text: text, style: prefix });
                     }
@@ -1185,36 +1312,117 @@
         }
 
         // --- STATS & SCRIPT ---
-        function generateScript() {
-            let html = '';
+        
+        // --- LINE COUNTING HELPERS (NEW) ---
+        
+        // Use a 4-word per line estimate for dialogue line calculation
+        const DIALOGUE_WORDS_PER_LINE = 4; 
+        const MAX_LINES_PER_PAGE = 55;
+        
+        function getElementLineCount(element, elementText) {
+            let lines = 0;
+            const text = elementText || '';
+            const wordCount = countWords(text);
             
-            html += `<h1 style="text-align: center; margin-top: 200px; font-size: 36pt;">${scriptMetadata.title || 'UNTITLED SCREENPLAY'}</h1>`;
-            if (scriptMetadata.author) {
-                html += `<p style="text-align: center; margin-top: 100px;">Written by<br><b>${scriptMetadata.author}</b></p><div style="page-break-after: always;"></div>`;
-            } else {
-                html += `<div style="page-break-after: always;"></div>`;
+            if (element === 'header') {
+                lines = 2; // 1 for header, 1 blank line
+            } else if (element === 'action' || element === 'notes') {
+                // Estimate based on word count for action text
+                lines = Math.ceil(wordCount / 10) + 1; 
+            } else if (element === 'transition' || element === 'title') {
+                lines = 2; // 1 for element, 1 blank line
+            } else if (element.type === 'Character') {
+                // Character name line (includes V.O./CONT'D inline parentheticals)
+                lines += 1;
+                
+                // Standard parenthetical line (e.g., (turning))
+                const parentheticals = element.parenthetical ? element.parenthetical.split(',').filter(p => p.trim().length > 0) : [];
+                if (parentheticals.length > 0) lines += 1;
+                
+                // Dialogue
+                lines += Math.ceil(wordCount / DIALOGUE_WORDS_PER_LINE);
+                lines += 1; // Trailing blank line after dialogue block
+            } else if (element === 'montage_item') {
+                lines = 1; 
             }
             
+            // Ensure minimum of 1 line for any element that renders
+            return Math.max(1, lines);
+        }
+        
+        function generateScript() {
+            let html = '';
+            let lineCount = 0;
+
+            const insertPageBreak = () => {
+                html += `<div style="page-break-after: always;"></div>`;
+                lineCount = 0;
+            };
+            
+            // --- 1. TITLE PAGE ---
+            html += `<h1 style="text-align: center; margin-top: 200px; font-size: 36pt;">${scriptMetadata.title || 'UNTITLED SCREENPLAY'}</h1>`;
+            lineCount += 10; // Placeholder line count for the title
+            
+            if (scriptMetadata.author) {
+                html += `<p style="text-align: center; margin-top: 100px;">Written by<br><b>${scriptMetadata.author}</b></p>`;
+                lineCount += 5; // Placeholder line count for the author
+            }
+            
+            insertPageBreak(); // Hard page break after title page
+            
+            // --- 2. GLOBAL TRANSITIONS ---
             scriptMetadata.transitions.forEach(t => {
+                const lines = getElementLineCount('transition', t);
+                if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
+                
                 html += `<div class="sc-header" style="text-align: right; text-decoration: none;">${t}</div>`;
+                lineCount += lines;
             });
             
+            // --- 3. SCENES ---
             cards.forEach(c => {
+                
+                // SCENE HEADER
+                const headerLines = getElementLineCount('header');
+                if (lineCount + headerLines > MAX_LINES_PER_PAGE) insertPageBreak();
                 html += `<div class="sc-header">${c.header}</div>`;
+                lineCount += headerLines;
+                
+                // OPENING ACTION / NOTES
+                if(c.notes) {
+                    const notesLines = getElementLineCount('notes', c.notes);
+                    if (lineCount + notesLines > MAX_LINES_PER_PAGE) insertPageBreak();
+                    html += `<div class="sc-action">${c.notes}</div>`;
+                    lineCount += notesLines;
+                }
 
-                if(c.notes) html += `<div class="sc-action">${c.notes}</div>`;
-
+                // MONTAGE ELEMENTS
                 if (c.header.toUpperCase().startsWith('MONTAGE')) {
                     if (c.montage && c.montage.length > 0) {
                         html += '<ul style="list-style-type: none; margin-left: 0; padding-left: 20px;">';
                         c.montage.forEach(item => {
+                            const montageLines = getElementLineCount('montage_item', item);
+                            if (lineCount + montageLines > MAX_LINES_PER_PAGE) insertPageBreak();
+                            
                             html += `<li class="sc-action" style="text-indent: -20px; margin-bottom: 0.5em;">-- ${item}</li>`;
+                            lineCount += montageLines;
                         });
                         html += '</ul>';
                     }
-                } else {
+                } 
+                
+                // SEQUENCE ELEMENTS (Dialogue and Inter-Dialogue Action)
+                else {
                     c.sequence.forEach(s => {
+                        let lines = 0;
+                        
                         if (s.type === 'Character') {
+                            // Dialogue line counting is complex due to parentheticals
+                            lines = getElementLineCount(s, s.text);
+                            
+                            if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
+
+                            // HTML generation for character block (unchanged from v6.11)
                             const inlineElements = []; 
                             const standardParenthetical = [];
 
@@ -1228,7 +1436,6 @@
                                 }
                             });
 
-                            // --- Character Name Line Assembly ---
                             html += `<div class="sc-character-block">`;
                             html += `<span class="sc-character">${s.content}</span>`;
                             
@@ -1238,34 +1445,52 @@
                             }
                             html += `</div>`; 
 
-                            // --- Standard Parenthetical Line Assembly ---
                             if (standardParenthetical.length > 0) {
                                 html += `<div class="sc-parenthetical-line">${standardParenthetical.join(' ')}</div>`;
                             }
                             
-                            // --- Dialogue Block ---
                             html += `<div class="sc-dialog">${s.text}</div>`;
+                            
+                            lineCount += lines;
+
                         } else if (s.type === 'Action') {
                             const styleUpper = (s.style || '').toUpperCase();
                             
                             if (styleUpper === 'TITLE CARD' || styleUpper === 'INTERTITLE') {
+                                lines = getElementLineCount('title', s.text);
+                                if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
+                                
                                 html += `<div class="sc-intertitle">${s.text}</div>`;
-                            } else if (styleUpper.includes('FADE') || styleUpper.includes('CUT') || styleUpper.includes('DISSOLVE')) {
-                                // Transition is rendered separately from the action content, at the end of the block
-                                html += `<div class="sc-action-inline">${s.text}</div>`;
+                            } else if (ALL_TRANSITIONS_AND_ACTIONS.includes(styleUpper) && styleUpper !== '' ) {
+                                // Transition
+                                lines = getElementLineCount('transition', s.text);
+                                if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
+                                
+                                if (s.text) html += `<div class="sc-action-inline">${s.text}</div>`; 
                                 html += `<div class="sc-header" style="text-align: right; text-decoration: none; margin-top: 1em;">${styleUpper}.</div>`;
                             } else {
+                                // Action Block
+                                lines = getElementLineCount('action', s.text);
+                                if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
+                                
                                 html += `<div class="sc-action-inline">${s.text}</div>`;
                             }
+                            lineCount += lines;
                         }
                     });
                 }
                 
-                // Keep the final tags handling as a safety net for scene end
+                // FINAL TRANSITIONS from TAGS
                 const finalTags = c.tags.split(',').filter(t => t.trim().toUpperCase().includes('FADE OUT') || t.trim().toUpperCase().includes('CUT TO') || t.trim().toUpperCase().includes('DISSOLVE TO'));
-                finalTags.forEach(t => html += `<div class="sc-header" style="text-align: right; text-decoration: none; margin-top: 2em;">${t.trim().toUpperCase()}.</div>`);
+                finalTags.forEach(t => {
+                    const lines = getElementLineCount('transition', t);
+                    if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
+                    
+                    html += `<div class="sc-header" style="text-align: right; text-decoration: none; margin-top: 2em;">${t.trim().toUpperCase()}.</div>`;
+                    lineCount += lines;
+                });
 
-                html += `<div style="page-break-after: always;"></div>`;
+                if (lineCount > 0) insertPageBreak(); // Ensure break after every scene/end of script
             });
             document.getElementById('script-content').innerHTML = html;
         }
@@ -1278,10 +1503,33 @@
                 if(h.includes('DAY')) dayC++; if(h.includes('NIGHT')) nightC++;
             });
             const tot = cards.length || 1; 
-            const totalTime = calculateTotalScriptTime(); // CALL THE NEW FUNCTION
+            const totalTime = calculateTotalScriptTime(); 
             
-            // Generate the HTML for the stats modal
-            document.getElementById('stats-content').innerHTML = `
+            // --- Character Stats Calculation (using resolveCharacterName) ---
+            const characterStats = {};
+
+            cards.forEach(c => {
+                const sceneTime = estimateScreenTime(c);
+                
+                c.sequence.forEach(s => {
+                    if (s.type === 'Character' && s.content) {
+                        const finalName = resolveCharacterName(s.content);
+                        
+                        if (!characterStats[finalName]) {
+                            characterStats[finalName] = { lines: 0, wordCount: 0, scenes: new Set(), totalTime: 0 };
+                        }
+                        
+                        characterStats[finalName].lines += 1;
+                        characterStats[finalName].wordCount += countWords(s.text);
+                        characterStats[finalName].scenes.add(c.id);
+                        characterStats[finalName].totalTime += sceneTime;
+                    }
+                });
+            });
+
+            const sortedChars = Object.entries(characterStats).sort(([, a], [, b]) => b.lines - a.lines);
+            
+            let statsHtml = `
                 <div class="stat-row total-time-stat">
                     <div>Total Run Time:</div>
                     <div>${totalTime} min</div>
@@ -1291,9 +1539,96 @@
                 <div class="stat-row"><div>Exterior: ${extC}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="width:${(extC/tot)*100}%"></div></div></div>
                 <hr>
                 <div class="stat-row"><div>Day: ${dayC}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="background:#f1c40f;width:${(dayC/tot)*100}%"></div></div></div>
-                <div class="stat-row"><div>Night: ${nightC}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="background:#8e44ad;width:${(nightC/tot)*100}%"></div></div></div>`;
+                <div class="stat-row"><div>Night: ${nightC}</div><div class="stat-bar-bg"><div class="stat-bar-fill" style="background:#8e44ad;width:${(nightC/tot)*100}%"></div></div></div>
+                <h3 style="margin-top:20px; margin-bottom: 5px;">Character Stats (Resolved)</h3>
+            `;
+            
+            sortedChars.forEach(([name, stats]) => {
+                const description = scriptMetadata.characterProxies[name]?.description || '';
+                const totalScenes = cards.length;
+                const scenesParticipated = stats.scenes.size;
+                const maxLines = sortedChars[0][1].lines || 1; 
+
+                statsHtml += `
+                    <div style="margin-top: 15px; border-top: 1px solid var(--border); padding-top: 10px;">
+                        <strong>${name} (${stats.lines} lines, ${scenesParticipated} scenes)</strong>
+                        <small style="display: block; opacity: 0.7;">${description}</small>
+                        <div class="stat-bar-bg" style="margin-top: 5px;">
+                            <div class="stat-bar-fill" style="width:${(stats.lines/maxLines)*100}%; background: #e74c3c;"></div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('stats-content').innerHTML = statsHtml;
             document.getElementById('stats-modal').style.display = 'flex';
         }
+        
+        // --- CHARACTER MANAGEMENT UI ---
+        function showCharacterManagement() {
+            updateCharacterList(); // Refresh data just in case
+            renderCharacterTable();
+            document.getElementById('char-modal').style.display = 'flex';
+        }
+
+        function renderCharacterTable() {
+            const tbody = document.getElementById('charManagementBody');
+            tbody.innerHTML = '';
+            
+            // Get all unique character names including those used as proxies
+            const allCharNames = getAllCharacterNames();
+            
+            // Create a list of all primary (non-proxying) characters for the dropdown
+            const primaryCharacters = Array.from(new Set(
+                Object.values(scriptMetadata.characterProxies).map(p => p.proxyFor)
+            )).sort();
+
+
+            allCharNames.forEach(name => {
+                const charData = scriptMetadata.characterProxies[name] || { proxyFor: name, description: '' };
+                const isProxy = charData.proxyFor !== name;
+
+                // Proxy dropdown options (including self)
+                const proxyOptions = primaryCharacters.map(p => 
+                    `<option value="${p}" ${p === charData.proxyFor ? 'selected' : ''}>${p}</option>`
+                ).join('');
+                
+                const descriptionValue = charData.description || '';
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="padding: 8px 0;">
+                            <strong>${name}</strong>
+                            ${isProxy ? '<span style="color: green; font-size: 0.8em;"> (PROXY)</span>' : ''}
+                        </td>
+                        <td style="padding: 8px 0;">
+                            <select onchange="updateCharacterProxy('${name}', this.value)" ${isProxy ? 'style="border: 1px solid green;"' : ''}>
+                                ${proxyOptions}
+                            </select>
+                        </td>
+                        <td style="padding: 8px 0;">
+                            <input type="text" value="${descriptionValue}" placeholder="Description/Notes" oninput="updateCharacterDescription('${name}', this.value)" ${isProxy ? 'disabled' : ''}>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function updateCharacterProxy(name, proxyFor) {
+            if (scriptMetadata.characterProxies[name]) {
+                scriptMetadata.characterProxies[name].proxyFor = proxyFor;
+                saveData();
+                renderCharacterTable(); // Re-render to update the PROXY tag and disable description field
+            }
+        }
+
+        function updateCharacterDescription(name, description) {
+            if (scriptMetadata.characterProxies[name]) {
+                scriptMetadata.characterProxies[name].description = description;
+                saveData();
+            }
+        }
+        
         function handleSearch(val) { currentSearchTerm = val.toLowerCase(); renderList(); }
     </script>
 </body>
