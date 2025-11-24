@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SceneCard Writer v6.15 (Metadata Editor)</title>
+    <title>SceneCard Writer v6.16 (Fixed Pitch)</title>
     <style>
         /* --- THEME VARIABLES --- */
         :root { 
@@ -25,7 +25,6 @@
         
         /* --- LAYOUT --- */
         #sidebar { width: 300px; background: var(--sidebar); color: white; display: flex; flex-direction: column; border-right: 1px solid #1a252f; flex-shrink: 0; transition: width 0.3s; }
-        /* RESTORED MAIN VIEW STYLES */
         #main { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
         
         /* --- SIDEBAR COMPONENTS --- */
@@ -59,18 +58,18 @@
         
         /* Fixed UI Break: Clear fix for the floating time estimate */
         .scene-header-group {
-            display: flex; /* Use flex to align children */
+            display: flex; 
             flex-direction: column;
-            overflow: auto; /* Contains the floating element */
+            overflow: auto; 
         }
         #screen-time-estimate {
-            order: 1; /* Puts it before the number display */
+            order: 1; 
             float: right;
-            align-self: flex-end; /* Align to the right in the flex container */
+            align-self: flex-end; 
         }
         #scene-number-display {
-            order: 2; /* Puts it before the label */
-            align-self: flex-start; /* Align to the left in the flex container */
+            order: 2; 
+            align-self: flex-start; 
         }
         
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.75rem; text-transform: uppercase; color: #7f8c8d; }
@@ -183,122 +182,146 @@
 
         .col-del { cursor: pointer; color: #e74c3c; text-align: center; }
         
-        /* SCRIPT VIEW */
-        #script-content { 
-            background: white; padding: 60px 80px; max-width: 800px; margin: 0 auto; min-height: 100%;
-            font-family: 'Courier Prime', 'Courier New', monospace; font-size: 12pt; color: black; box-shadow: 0 0 20px rgba(0,0,0,0.2); 
-            line-height: 1.2em;
-        }
-        
-        /* Scene Header (e.g., INT. LOCATION - DAY) */
-        .sc-header { margin-top: 1.5em; margin-bottom: 1em; text-transform: uppercase; text-align: left; }
-        
-        /* General Action/Notes Block */
-        .sc-action { margin-top: 1em; margin-bottom: 1em; } 
-        
-        /* Character and Dialogue Formatting */
-        .sc-character-block { 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            margin-top: 1em; 
-            margin-bottom: 0.2em; 
-            margin-left: 3.5in; 
-            margin-right: 3.5in;
-        } 
-        .sc-character { text-transform: uppercase; white-space: nowrap; } 
-        
-        /* Parentheticals that stay on the name line (V.O., CONT'D) */
-        .sc-parenthetical-inline { 
-            margin-left: 0.2em; 
-            font-style: italic; 
-            white-space: nowrap; 
-        } 
-        
-        /* Parenthetical line (e.g., stage direction like (turning)) */
-        .sc-parenthetical-line { 
-            text-align: center; 
-            margin-left: 2.75in; 
-            margin-right: 2.75in;
-            margin-top: 0.2em;
-            margin-bottom: 0.2em;
-            font-style: italic;
-        }
-        
-        .sc-dialog { margin-left: 1.5in; margin-right: 1.5in; margin-top: 0.5em; margin-bottom: 0.5em; white-space: pre-wrap; } 
-
-        .sc-intertitle { text-align: center; margin: 3em 0; font-weight: bold; font-size: 14pt; } 
-        .sc-action-inline { margin-top: 1em; margin-bottom: 1em; font-style: italic; } 
-        
-        /* TRANSITION/CUT TO CLASS (RIGHT ALIGNED) */
-        .sc-transition { text-align: right; margin-top: 2em; margin-bottom: 1em; text-transform: uppercase; }
-
         /* UTILS */
         .hidden { display: none !important; }
 
         /* VIEW CONTAINER VISIBILITY FIX */
-        /* UI FIX: Only toggle visibility here, leave main and sidebar display untouched */
         .view-container { display: none; }
         .view-container.visible { display: block; }
+
+        /* --- SCRIPT VIEW (Fixed Pitch / Fixed Line Height) --- */
+        
+        #script-view { 
+            overflow-y: auto; 
+            background: #f0f0f0; 
+            padding: 20px;
+        }
+        
+        #script-content { 
+            max-width: 8.5in; /* Standard US Letter Width */
+            margin: 0 auto; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.2); 
+            background: white;
+            
+            /* Enforce Fixed Pitch/Height for Print Preview */
+            font-family: 'Courier Prime', 'Courier New', monospace; 
+            font-size: 12pt; 
+            line-height: 1.2em; /* Ensure consistent line height */
+        }
+
+        /* Page container to apply print margins/breaks */
+        .sc-page {
+            padding: 1in 1in 1in 1.5in; /* Matches standard print margins */
+            box-sizing: border-box;
+            height: 11in; /* Standard US Letter Height */
+            background: white;
+            
+            /* Only apply page break in print mode */
+            page-break-after: always; 
+            
+            /* Use fixed position for all lines inside */
+            position: relative;
+        }
+        
+        .sc-title-page {
+            padding: 1in; 
+            box-sizing: border-box;
+            height: 11in; 
+            background: white;
+            page-break-after: always;
+            color: black;
+        }
+
+        /* All line elements share this base style for alignment */
+        #script-content > div:not(.sc-title-page) > div {
+            white-space: pre; /* Essential for &nbsp; padding to work */
+            margin: 0; 
+            padding: 0;
+            text-indent: 0;
+            line-height: 1.2em; /* Fixed line height */
+            color: black;
+        }
+
+        /* Special Styling for specific line types */
+        .sc-header { text-transform: uppercase; font-weight: bold; }
+        .sc-transition { text-align: right; }
+        .sc-page-number { text-align: right; font-size: 10pt; line-height: 1em; margin-bottom: 0.5em; position: absolute; top: 0.75in; right: 1in; }
+        .sc-intertitle { text-align: center; font-weight: bold; }
         
         /* --- FINAL PRINT STYLES --- */
         @media print {
-            /* 1. Hide the entire interface *except* for the script view */
+            /* 1. HIDE UI PANELS */
             #sidebar, 
             #editor-view, 
             #storyboard-view,
-            #print-button {
+            #print-button,
+            #main > .view-container:not(#script-view) {
                 display: none !important;
                 visibility: hidden !important; 
             }
             
-            /* 2. Ensure the main container holding the script view is visible and takes full space */
+            /* 2. MAIN CONTAINER */
             #main {
-                /* UI Fix: Ensure main is not padding or overflowing */
                 display: block !important;
                 width: 100% !important;
                 padding: 0 !important;
                 overflow: visible !important;
-                position: absolute !important; /* Forces it to occupy the full page extent */
+                position: absolute !important; 
                 left: 0 !important;
                 top: 0 !important;
                 z-index: 9999 !important;
             }
 
-            /* 3. Ensure the script view itself is visible and correctly positioned */
+            /* 3. SCRIPT VIEW */
             #script-view {
                 display: block !important; 
                 width: 100% !important;
                 height: auto !important;
                 padding: 0 !important; 
                 margin: 0 !important;
+                overflow: visible !important;
+                background: white !important;
             }
-            
-            /* 4. Ensure the content area looks like a clean script page */
-            #script-content { 
+
+            /* 4. CONTENT WRAPPER */
+            #script-content {
                 box-shadow: none !important; 
-                max-width: none !important; /* Allow content to span the paper width */
-                width: 100% !important; 
+                max-width: none !important; 
+                width: auto !important;
                 margin: 0 !important; 
-                padding: 1in 1in 1in 1.5in !important; /* Top/Bottom: 1in, Right: 1in, Left: 1.5in (Standard margin) */
-                background: white !important; 
-                color: black !important;
+                padding: 0 !important; /* Margins are handled by .sc-page */
                 font-size: 12pt !important;
+                line-height: 1.2em !important;
             }
             
-            /* 5. Force the scene number to 1.5in margin for the left column area */
-            #script-content > div:first-child {
-                text-align: left !important;
-                margin-left: -0.5in !important; /* Pushes it slightly past the 1in print margin */
+            /* 5. PAGE CONTAINER - Final Print Formatting */
+            .sc-page {
+                /* Standard A4/Letter size */
+                width: 8.5in; 
+                height: 11in; 
+                padding: 1in 1in 1in 1.5in !important; /* Top, Right, Bottom, Left */
+                margin: 0 !important;
+                box-sizing: border-box;
+                background: white !important;
+                page-break-after: always !important; /* Ensure separation */
             }
             
-            /* 6. Ensure dialogue elements are using inches for precise positioning */
-            .sc-character-block { margin-left: 3.5in !important; margin-right: 3.5in !important; } 
-            .sc-parenthetical-line { margin-left: 2.75in !important; margin-right: 2.75in !important; }
-            .sc-dialog { margin-left: 1.5in !important; margin-right: 1.5in !important; }
-            
-            /* 7. Ensure transitions are right-aligned from the 1in right margin */
-            .sc-transition { text-align: right !important; margin-right: 0 !important; }
+            .sc-title-page {
+                width: 8.5in; 
+                height: 11in; 
+                padding: 1in !important; 
+                margin: 0 !important;
+                box-sizing: border-box;
+                background: white !important;
+                page-break-after: always !important; 
+                color: black !important;
+            }
+
+            /* 6. PAGE NUMBER OVERRIDE */
+            .sc-page-number {
+                top: 0.5in !important; /* Move page number up to the standard 0.5in margin */
+                right: 1in !important;
+            }
         }
     </style>
 </head>
@@ -586,9 +609,6 @@
             
             document.querySelectorAll('.view-container').forEach(el => el.classList.remove('visible'));
             
-            // UI FIX: Removed conditional sidebar display from here, relying solely on
-            // the view-container visibility toggle and CSS media print rules.
-
             if (viewName === 'editor') { 
                 document.getElementById('editor-view').classList.add('visible'); 
                 if (activeCardId) loadEditor(activeCardId, false);
@@ -1460,192 +1480,292 @@
 
 
         // --- SCRIPT GENERATION ---
-        
-        const DIALOGUE_WORDS_PER_LINE = 4; // Standard Courier font for dialogue
-        const MAX_LINES_PER_PAGE = 48; // Adjusted to safely fit 42-44 lines observed + margin
-        
-        function getElementLineCount(element, elementText) {
-            let lines = 0;
-            const text = elementText || '';
-            const wordCount = countWords(text);
-            
-            if (element === 'header') {
-                lines = 3; // Scene Number (1) + Header (1) + Whitespace (1)
-            } else if (element === 'action' || element === 'notes') {
-                lines = Math.ceil(wordCount / 10) + 1; // 10 words per line approximation for action blocks + 1 line for margin
-            } else if (element === 'transition' || element === 'title') {
-                lines = 2; // Transition/Title Card (1) + Whitespace (1)
-            } else if (element.type === 'Character') {
-                lines += 1; // Character Name line (including V.O./CONT'D)
-                
-                const parentheticals = element.parenthetical ? element.parenthetical.split(',').filter(p => p.trim().length > 0) : [];
-                if (parentheticals.length > 0) lines += 1; // Parenthetical line
-                
-                lines += Math.ceil(wordCount / DIALOGUE_WORDS_PER_LINE); // Dialogue text lines
-                lines += 1; // Margin line after dialogue
-            } else if (element === 'montage_item') {
-                lines = 1; // Montage item (1)
-            }
-            
-            return Math.max(1, lines);
-        }
-        
-        function generateScript() {
-            let html = '';
-            let lineCount = 0;
 
-            const insertPageBreak = () => {
-                // Page breaks only if content exists
-                if (lineCount > 0) {
-                    html += `<div style="page-break-after: always;"></div>`;
+        // Standard Screenplay Fixed-Pitch Constraints
+        const MAX_LINES_PER_PAGE = 55; // Standard page length (excluding page number)
+        const CHAR_WIDTH = 60; // Max characters per action line (approx)
+
+        // Formatting Constants (in columns/characters)
+        const CHAR_NAME_COL = 37; // Center point for character name
+        const DIALOGUE_COL = 18; // Start column for dialogue block
+        const PARENTHETICAL_COL = 26; // Start column for parenthetical block
+        const DIALOGUE_WIDTH = 38; // Max width for dialogue block
+
+        // Helper to pad and truncate strings
+        function padString(text, col, width) {
+            let s = text || '';
+            s = s.substring(0, width); // Truncate if necessary
+            
+            // Calculate padding needed to reach starting column 'col'
+            let currentLength = s.length;
+            let paddingNeeded = col - currentLength;
+
+            if (paddingNeeded < 0) paddingNeeded = 0;
+            
+            // Use non-breaking spaces for Courier fixed pitch alignment
+            let pad = "&nbsp;".repeat(paddingNeeded);
+            return pad + s;
+        }
+
+        // Word wrapping function for fixed width
+        function wordWrap(text, width) {
+            if (!text) return [""];
+            const words = text.split(/\s+/);
+            const lines = [];
+            let currentLine = '';
+
+            for (const word of words) {
+                // Check if adding the word exceeds the width
+                if ((currentLine + ' ' + word).trim().length <= width) {
+                    currentLine = (currentLine + ' ' + word).trim();
+                } else {
+                    if (currentLine.length > 0) lines.push(currentLine);
+                    currentLine = word;
                 }
-                lineCount = 0;
-            };
-            
-            // --- 1. TITLE PAGE ---
-            html += `<h1 style="text-align: center; margin-top: 200px; font-size: 36pt;">${scriptMetadata.title || 'UNTITLED SCREENPLAY'}</h1>`;
-            lineCount += 10; 
-            
-            if (scriptMetadata.author) {
-                html += `<p style="text-align: center; margin-top: 100px;">Written by<br><b>${scriptMetadata.author}</b></p>`;
-                lineCount += 5; 
             }
+            if (currentLine.length > 0) lines.push(currentLine);
+            return lines;
+        }
+
+
+        // --- PAGE BUFFER CLASS ---
+
+        class PageBuffer {
+            constructor() {
+                this.lines = [];
+                this.pageCounter = 0;
+            }
+
+            // Insert lines and handle overflow
+            insert(formattedLines, elementClass, forceBreak = false) {
+                let html = '';
+                
+                if (forceBreak && this.lines.length > 0) {
+                    html += this.flush();
+                }
+
+                const linesRemaining = MAX_LINES_PER_PAGE - this.lines.length;
+
+                if (formattedLines.length > linesRemaining) {
+                    // Flush current page if the entire block won't fit
+                    if (this.lines.length > 0) {
+                        html += this.flush();
+                    }
+                }
+                
+                // Add lines to the current page (guaranteed to fit now, or the block is too big)
+                for (const line of formattedLines) {
+                    if (this.lines.length >= MAX_LINES_PER_PAGE) {
+                        html += this.flush();
+                    }
+                    
+                    const content = `<div class="${elementClass}">${line}</div>`;
+                    this.lines.push(content);
+                }
+                
+                return html;
+            }
+
+            // Renders the current page and resets the buffer
+            flush() {
+                if (this.lines.length === 0) return '';
+                
+                this.pageCounter++;
+                const pageNumber = `<div class="sc-page-number">${this.pageCounter}.</div>`;
+                const content = this.lines.join('\n');
+                
+                // Use a single container to simulate the page dimensions
+                let pageHtml = `
+                    <div class="sc-page">
+                        ${pageNumber}
+                        ${content}
+                    </div>
+                `;
+                
+                this.lines = [];
+                return pageHtml;
+            }
+        }
+
+        // --- FORMATTING FUNCTIONS (returning an array of lines) ---
+
+        // 1. Scene Header: INT. LOCATION - TIME
+        function formatHeader(headerText) {
+            const lines = [];
+            lines.push(padString(headerText.toUpperCase(), 0, CHAR_WIDTH));
+            lines.push(padString("", 0, 0)); // Blank line
+            return lines;
+        }
+
+        // 2. Action/Notes Block
+        function formatAction(text) {
+            // Action starts at column 0, max width CHAR_WIDTH
+            const wrappedLines = wordWrap(text, CHAR_WIDTH);
+            const paddedLines = wrappedLines.map(line => padString(line, 0, CHAR_WIDTH));
+            paddedLines.push(padString("", 0, 0)); // Blank line after block
+            return paddedLines;
+        }
+
+        // 3. Transitions (FADE OUT, CUT TO)
+        function formatTransition(text) {
+            const lines = [];
+            lines.push(padString("", 0, 0)); // Blank line before
             
-            insertPageBreak(); 
+            // Right-align by padding to CHAR_WIDTH - length of text
+            const transitionText = text.toUpperCase() + '.';
+            const rightPad = CHAR_WIDTH - transitionText.length;
+            lines.push(padString(transitionText, rightPad, CHAR_WIDTH)); 
             
+            lines.push(padString("", 0, 0)); // Blank line after
+            return lines;
+        }
+
+        // 4. Dialogue Block
+        function formatDialogue(s) {
+            const lines = [];
+            const charName = s.content.toUpperCase();
+            
+            // Character Name Line
+            // Find the starting column to center the name over the dialogue block
+            const namePad = Math.max(0, DIALOGUE_COL + Math.floor((DIALOGUE_WIDTH - charName.length) / 2));
+            let charLine = padString(charName, namePad, CHAR_WIDTH);
+
+            // Add inline elements (V.O./CONT'D)
+            let inlineElements = [];
+            if (s.context) inlineElements.push(s.context);
+            if (s.contd) inlineElements.push("CONT'D");
+            if (inlineElements.length > 0) {
+                // Append the inline tag directly to the end of the padded character name line
+                charLine += " " + inlineElements.map(p => `(${p})`).join(' ');
+            }
+            lines.push(charLine);
+
+            // Parenthetical Line (e.g., (beat))
+            const rawParentheticals = s.parenthetical ? s.parenthetical.split(',').map(p => p.trim()).filter(p => p.length > 0) : [];
+            if (rawParentheticals.length > 0) {
+                lines.push(padString(`(${rawParentheticals.join(' ')})`, PARENTHETICAL_COL, CHAR_WIDTH));
+            }
+
+            // Dialogue Text Lines
+            const wrappedDialogue = wordWrap(s.text, DIALOGUE_WIDTH);
+            wrappedDialogue.forEach(line => {
+                lines.push(padString(line, DIALOGUE_COL, CHAR_WIDTH));
+            });
+
+            lines.push(padString("", 0, 0)); // Blank line after dialogue
+            return lines;
+        }
+
+        // 5. Montage Item
+        function formatMontageItem(item) {
+            const lines = [];
+            lines.push(padString(`-- ${item}`, 0, CHAR_WIDTH));
+            return lines;
+        }
+
+        // 6. Title Card/Intertitle
+        function formatTitleCard(text) {
+            const lines = [];
+            lines.push(padString("", 0, 0)); // Blank line
+            lines.push(padString(text.toUpperCase(), Math.floor((CHAR_WIDTH - text.length) / 2), CHAR_WIDTH));
+            lines.push(padString("", 0, 0)); // Blank line
+            return lines;
+        }
+
+
+        // --- MAIN GENERATION FUNCTION ---
+
+        function generateScript() {
+            let scriptHtml = '';
+            const buffer = new PageBuffer();
+
+            // --- 1. TITLE PAGE ---
+            // Title Page is treated separately because it doesn't follow fixed-pitch line rules.
+            scriptHtml += `
+                <div class="sc-title-page">
+                    <h1 style="text-align: center; margin-top: 200px; font-size: 36pt;">${scriptMetadata.title || 'UNTITLED SCREENPLAY'}</h1>
+                    ${scriptMetadata.author ? `<p style="text-align: center; margin-top: 100px;">Written by<br><b>${scriptMetadata.author}</b></p>` : ''}
+                </div>
+            `;
+
             // --- 2. GLOBAL TRANSITIONS ---
             scriptMetadata.transitions.forEach(t => {
-                const lines = getElementLineCount('transition', t);
-                if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
-                
-                html += `<div class="sc-transition">${t}</div>`;
-                lineCount += lines;
+                const lines = formatTransition(t);
+                scriptHtml += buffer.insert(lines, 'sc-transition');
             });
-            
+
             // --- 3. SCENES ---
             cards.forEach(c => {
                 
-                // **FIXED: HARD PAGE BREAK BEFORE EVERY SCENE (Standard Screenplay)**
-                insertPageBreak(); 
+                // Scene must start on a new page (Page break logic)
+                scriptHtml += buffer.insert([], 'sc-break', true); 
                 
-                // LINE COUNT CHECK BEFORE STARTING SCENE
-                const headerLines = getElementLineCount('header');
-                const notesLines = c.notes ? getElementLineCount('notes', c.notes) : 0;
-                
-                // If the initial elements won't fit, force a break. (This check is now mostly for safety after the hard break)
-                if ((lineCount + headerLines + notesLines) > MAX_LINES_PER_PAGE) {
-                    insertPageBreak();
-                }
+                // 3a. SCENE HEADER
+                // Format includes the scene number (e.g., "1. INT. KITCHEN - DAY")
+                const headerLines = formatHeader(`${c.sceneNumber}. ${c.header}`);
+                scriptHtml += buffer.insert(headerLines, 'sc-header');
 
-                // Insert Scene Number (Left Aligned)
-                html += `<div style="text-align: left; margin-top: 1.5em; margin-bottom: 0.5em; font-weight: bold;">${c.sceneNumber}</div>`;
-                lineCount += 1; 
-
-                // SCENE HEADER
-                html += `<div class="sc-header" style="margin-top: 0.5em;">${c.header}</div>`; 
-                lineCount += (headerLines - 1); // Only count the header and its margin, scene number was already counted.
-                
-                // OPENING ACTION / NOTES
+                // 3b. OPENING ACTION / NOTES
                 if(c.notes) {
-                    html += `<div class="sc-action">${c.notes}</div>`;
-                    lineCount += notesLines;
+                    const actionLines = formatAction(c.notes);
+                    scriptHtml += buffer.insert(actionLines, 'sc-action');
                 }
 
-                // MONTAGE ELEMENTS
-                if (c.header.toUpperCase().startsWith('MONTAGE')) {
-                    if (c.montage && c.montage.length > 0) {
-                        html += '<ul style="list-style-type: none; margin-left: 0; padding-left: 20px;">';
-                        c.montage.forEach(item => {
-                            const montageLines = getElementLineCount('montage_item', item);
-                            if (lineCount + montageLines > MAX_LINES_PER_PAGE) insertPageBreak();
-                            
-                            html += `<li class="sc-action" style="text-indent: -20px; margin-bottom: 0.5em;">-- ${item}</li>`;
-                            lineCount += montageLines;
-                        });
-                        html += '</ul>';
-                    }
+                // 3c. MONTAGE ELEMENTS
+                if (c.header.toUpperCase().startsWith('MONTAGE') && c.montage && c.montage.length > 0) {
+                    c.montage.forEach(item => {
+                        const lines = formatMontageItem(item);
+                        scriptHtml += buffer.insert(lines, 'sc-montage-item');
+                    });
                 } 
                 
-                // SEQUENCE ELEMENTS
+                // 3d. SEQUENCE ELEMENTS (Dialogue/Action)
                 else {
                     c.sequence.forEach(s => {
-                        let lines = 0;
-                        
+                        let lines = [];
+                        let cssClass = '';
+
                         if (s.type === 'Character') {
-                            lines = getElementLineCount(s, s.text);
-                            
-                            if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
-
-                            const inlineElements = []; 
-                            const standardParenthetical = [];
-
-                            if (s.context) { inlineElements.push(s.context); } 
-                            if (s.contd) { inlineElements.push("CONT'D"); }
-
-                            const rawParenthetical = s.parenthetical ? s.parenthetical.split(',').map(p => p.trim()) : [];
-                            rawParenthetical.forEach(p => {
-                                if (p.length > 0) {
-                                    standardParenthetical.push(`(${p})`);
-                                }
-                            });
-
-                            html += `<div class="sc-character-block">`;
-                            html += `<span class="sc-character">${s.content}</span>`;
-                            
-                            if (inlineElements.length > 0) {
-                                const renderedInline = inlineElements.map(p => `(${p})`).join(' ');
-                                html += `<span class="sc-parenthetical-inline">${renderedInline}</span>`;
-                            }
-                            html += `</div>`; 
-
-                            if (standardParenthetical.length > 0) {
-                                html += `<div class="sc-parenthetical-line">${standardParenthetical.join(' ')}</div>`;
-                            }
-                            
-                            html += `<div class="sc-dialog">${s.text}</div>`;
-                            
-                            lineCount += lines;
-
+                            lines = formatDialogue(s);
+                            cssClass = 'sc-dialog-block';
                         } else if (s.type === 'Action') {
                             const styleUpper = (s.style || '').toUpperCase();
                             
                             if (styleUpper === 'TITLE CARD' || styleUpper === 'INTERTITLE') {
-                                lines = getElementLineCount('title', s.text);
-                                if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
-                                
-                                html += `<div class="sc-intertitle">${s.text}</div>`;
+                                lines = formatTitleCard(s.text);
+                                cssClass = 'sc-intertitle';
                             } else if (ALL_TRANSITIONS_AND_ACTIONS.includes(styleUpper) && styleUpper !== '' ) {
-                                lines = getElementLineCount('transition', s.text);
-                                if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
+                                let text = s.text.trim();
+                                // Action text before transition (if any)
+                                if (text) { scriptHtml += buffer.insert(formatAction(text), 'sc-action'); }
                                 
-                                if (s.text) html += `<div class="sc-action-inline">${s.text}</div>`; 
-                                // Use new right-aligned transition class
-                                html += `<div class="sc-transition">${styleUpper}.</div>`;
+                                lines = formatTransition(styleUpper);
+                                cssClass = 'sc-transition';
                             } else {
-                                lines = getElementLineCount('action', s.text);
-                                if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
-                                
-                                html += `<div class="sc-action-inline">${s.text}</div>`;
+                                lines = formatAction(s.text);
+                                cssClass = 'sc-action';
                             }
-                            lineCount += lines;
+                        }
+                        
+                        if (lines.length > 0) {
+                            scriptHtml += buffer.insert(lines, cssClass);
                         }
                     });
                 }
                 
-                // FINAL TRANSITIONS from TAGS
+                // 3e. FINAL TRANSITIONS from TAGS
                 const finalTags = c.tags.split(',').filter(t => t.trim().toUpperCase().includes('FADE OUT') || t.trim().toUpperCase().includes('CUT TO') || t.trim().toUpperCase().includes('DISSOLVE TO'));
                 finalTags.forEach(t => {
-                    const lines = getElementLineCount('transition', t);
-                    if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
-                    
-                    // Use new right-aligned transition class
-                    html += `<div class="sc-transition" style="margin-top: 2em;">${t.trim().toUpperCase()}.</div>`;
-                    lineCount += lines;
+                    const lines = formatTransition(t);
+                    scriptHtml += buffer.insert(lines, 'sc-transition');
                 });
 
-                // NO hard break at end of loop to prevent trailing blank pages
             });
-            document.getElementById('script-content').innerHTML = html;
+
+            // Flush any remaining lines on the last page
+            scriptHtml += buffer.flush(); 
+
+            document.getElementById('script-content').innerHTML = scriptHtml;
         }
 
 
