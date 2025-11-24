@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SceneCard Writer v6.12 (Page Breaks & Character)</title>
+    <title>SceneCard Writer v6.14 (Scene Numbering)</title>
     <style>
         /* --- THEME VARIABLES --- */
         :root { 
@@ -58,7 +58,18 @@
         
         /* Fixed UI Break: Clear fix for the floating time estimate */
         .scene-header-group {
+            display: flex; /* Use flex to align children */
+            flex-direction: column;
             overflow: auto; /* Contains the floating element */
+        }
+        #screen-time-estimate {
+            order: 1; /* Puts it before the number display */
+            float: right;
+            align-self: flex-end; /* Align to the right in the flex container */
+        }
+        #scene-number-display {
+            order: 2; /* Puts it before the label */
+            align-self: flex-start; /* Align to the left in the flex container */
         }
         
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.75rem; text-transform: uppercase; color: #7f8c8d; }
@@ -70,7 +81,6 @@
             font-weight: bold; 
             color: var(--accent);
             padding: 5px 0 15px 0;
-            float: right;
         }
 
         /* SEQUENCE TABLE */
@@ -274,7 +284,8 @@
             <div id="editor" class="editor-card hidden">
                 
                 <div class="scene-header-group">
-                    <div id="screen-time-estimate"></div>
+                    <div id="screen-time-estimate" style="float: right;"></div>
+                    <div id="scene-number-display" style="font-size: 1.1em; font-weight: bold; color: #f1c40f; padding: 5px 0 15px 0;"></div>
                     <div class="field-group">
                         <label>Scene Header</label>
                         <input type="text" id="inp-header" placeholder="EXT. LOCATION - TIME or MONTAGE - TYPE" oninput="updateHeader(this.value);">
@@ -370,8 +381,8 @@
     <script>
         // --- STATE ---
         let cards = [];
-        const EMPTY_CARD = { id: Date.now(), header: 'INT. NEW SCENE - DAY', location: 'NEW SCENE', chars: '', props: '', notes: '', tags: '', sequence: [], montage: [] };
-        // UPDATE: Add characterProxies to scriptMetadata
+        // UPDATE: Added sceneNumber field
+        const EMPTY_CARD = { id: Date.now(), header: 'INT. NEW SCENE - DAY', location: 'NEW SCENE', chars: '', props: '', notes: '', tags: '', sequence: [], montage: [], sceneNumber: '' };
         let scriptMetadata = { title: 'UNTITLED SCREENPLAY', author: '', transitions: [], characterProxies: {} }; 
         let activeCardId = null;
         let dragStartIndex;
@@ -417,6 +428,9 @@
                 cards = JSON.parse(saved);
                 
                 cards.forEach(card => {
+                    // Migration: Ensure sceneNumber exists
+                    if (!card.sceneNumber) card.sceneNumber = '';
+                    
                     if (card.dialog && !card.sequence) {
                         card.sequence = card.dialog.map(d => ({ type: 'Character', content: d.character, text: d.text, context: '', contd: false, parenthetical: '' }));
                         delete card.dialog;
@@ -426,12 +440,10 @@
                         if (s.type === 'Character') {
                             migrateDialogueFields(s);
                         } else if (s.type === 'Action') {
-                            // Ensure Action rows use 'text' for content if 'content' exists
                             if (s.content !== undefined) {
                                 s.text = s.content;
                                 delete s.content;
                             }
-                            // Ensure style exists for Action rows even if null
                             if (s.style === undefined) {
                                 s.style = '';
                             }
@@ -443,12 +455,13 @@
             }
             if (savedMeta) {
                 scriptMetadata = JSON.parse(savedMeta);
-                // Ensure proxies object exists on load
                 if (!scriptMetadata.characterProxies) {
                     scriptMetadata.characterProxies = {};
                 }
             }
             if (theme === 'dark') document.body.classList.add('dark-mode');
+            
+            renumberScenes(); // NEW: Run numbering on load
             updateCharacterList();
             renderList();
         };
@@ -540,9 +553,16 @@
         }
         
         function addNewCard() {
-            const newCard = { ...EMPTY_CARD, id: Date.now() }; 
-            newCard.location = extractLocation(newCard.header); 
-            cards.push(newCard);
+            const newCard = { ...EMPTY_CARD, id: Date.now(), sceneNumber: '' }; // Start with no number
+            
+            if (activeCardId) {
+                const activeIndex = cards.findIndex(c => c.id === activeCardId);
+                cards.splice(activeIndex + 1, 0, newCard); 
+            } else {
+                cards.push(newCard);
+            }
+            
+            renumberScenes(); // Rerender numbers after insertion
             activeCardId = newCard.id;
             switchView('editor'); 
             saveData(); 
@@ -564,19 +584,73 @@
             if(card) { card[field] = value; saveData(); }
         }
         
-        // --- NEW CHARACTER MANAGEMENT LOGIC ---
+        // --- NEW SCENE NUMBERING LOGIC ---
+
+        function renumberScenes() {
+            // Step 1: Initialize numbering structure
+            // Collect all current scene numbers and their primary integer parts
+            const currentNumbers = cards.map(c => c.sceneNumber);
+            const primaryNumbers = new Set(
+                currentNumbers
+                    .map(n => parseInt(n))
+                    .filter(n => !isNaN(n))
+            );
+
+            let nextPrimaryNumber = primaryNumbers.size > 0 ? Math.max(...primaryNumbers) + 1 : 1;
+
+            // Step 2: Ensure all scenes have a primary number assigned first (if they didn't have one)
+            cards.forEach(card => {
+                if (!parseInt(card.sceneNumber)) {
+                    card.sceneNumber = nextPrimaryNumber.toString();
+                    nextPrimaryNumber++;
+                } else if (parseInt(card.sceneNumber) >= nextPrimaryNumber) {
+                    nextPrimaryNumber = parseInt(card.sceneNumber) + 1;
+                }
+            });
+
+            // Step 3: Second Pass for A/B/C numbering on insertions
+            for (let i = 1; i < cards.length; i++) {
+                const current = cards[i];
+                const previous = cards[i - 1];
+
+                const primaryCurrent = parseInt(current.sceneNumber);
+                const primaryPrev = parseInt(previous.sceneNumber);
+
+                // If the scene has been inserted and has the same number as the previous one, use A/B numbering
+                if (primaryCurrent === primaryPrev) {
+                    const base = primaryPrev;
+                    let suffix = 'A';
+                    
+                    // Look back to find the last used suffix
+                    for (let j = i - 1; j >= 0; j--) {
+                        if (cards[j].sceneNumber.startsWith(base.toString())) {
+                            const lastSuffix = cards[j].sceneNumber.replace(base.toString(), '');
+                            if (lastSuffix) {
+                                // Increment the suffix (A -> B, B -> C, etc.)
+                                suffix = String.fromCharCode(lastSuffix.charCodeAt(0) + 1);
+                                break;
+                            }
+                        } else if (parseInt(cards[j].sceneNumber) < base) {
+                            // Hit a lower primary number, so we start over at 'A'
+                            break;
+                        }
+                    }
+                    current.sceneNumber = base + suffix;
+                }
+            }
+            saveData();
+        }
+
+        // --- CHARACTER MANAGEMENT LOGIC (unchanged) ---
 
         function resolveCharacterName(name) {
             const upperName = name.toUpperCase().trim();
             if (scriptMetadata.characterProxies[upperName]) {
-                // If it's a proxy, return the final name
                 return scriptMetadata.characterProxies[upperName].proxyFor;
             }
-            // Otherwise, return the name itself
             return upperName;
         }
 
-        // Renamed and refactored function to populate all character names found in the script
         function getAllCharacterNames() {
             const charSet = new Set();
             cards.forEach(c => {
@@ -588,34 +662,22 @@
             return Array.from(charSet).sort();
         }
 
-        // Function that updates the character management structure and datalist
         function updateCharacterList() {
             const allNames = getAllCharacterNames();
             const newProxies = {};
 
-            // 1. Maintain descriptions and proxy associations for existing characters
             allNames.forEach(name => {
                 const existing = scriptMetadata.characterProxies[name];
-                
-                // If the name is already mapped as a PROXY (e.g., WOMAN ONE -> KAERA), keep that mapping.
-                // If the name is a MAIN character, maintain its description.
                 if (existing) {
                     newProxies[name] = existing;
                 } else {
-                    // Initialize new character names
                     newProxies[name] = { proxyFor: name, description: '' };
                 }
             });
             
-            // 2. Clean up proxies for characters no longer in the script
             for (const name in scriptMetadata.characterProxies) {
-                // Get the final resolved name for the character defined by the key 'name'
                 const targetName = scriptMetadata.characterProxies[name].proxyFor;
-                
-                // Check if the current name or its target is present in the script
                 const isPresent = allNames.includes(name) || allNames.includes(targetName);
-                
-                // Check if the current name is used as a proxy target by another name still in the script
                 const isUsedAsTarget = Object.values(newProxies).some(p => p.proxyFor === name && p.proxyFor !== name);
 
                 if (!isPresent && !isUsedAsTarget) {
@@ -628,15 +690,11 @@
                 return acc;
             }, {});
 
-            // 3. Update the datalist for the editor inputs
             const dl = document.getElementById('character-list');
             dl.innerHTML = '';
             
-            // List all unique resolved names (the actual character names) for use in input fields
             const resolvedNames = new Set(Object.values(scriptMetadata.characterProxies).map(p => p.proxyFor));
             resolvedNames.forEach(char => { let opt = document.createElement('option'); opt.value = char; dl.appendChild(opt); });
-
-            // Note: saveData is called at the end of this function via its call chain in window.onload
         }
 
 
@@ -649,12 +707,16 @@
                 document.getElementById('editor').classList.add('hidden');
                 document.getElementById('empty-state').classList.remove('hidden');
                 document.getElementById('screen-time-estimate').innerHTML = '';
+                document.getElementById('scene-number-display').innerText = ''; // NEW: Clear number
                 return;
             }
 
             document.getElementById('empty-state').classList.add('hidden');
             document.getElementById('editor').classList.remove('hidden');
             ['header', 'location', 'chars', 'props', 'notes', 'tags'].forEach(f => document.getElementById('inp-' + f).value = card[f]);
+            
+            // NEW: Display the scene number
+            document.getElementById('scene-number-display').innerText = `#${card.sceneNumber}`;
             
             toggleMontageEditor(card.header); 
             
@@ -668,14 +730,13 @@
             updateScreenTimeEstimate();
         }
 
-        // --- TIME ESTIMATION FUNCTIONS ---
+        // --- TIME ESTIMATION FUNCTIONS (unchanged) ---
 
         function countWords(text) {
             if (!text || typeof text !== 'string') return 0;
             return text.trim().split(/\s+/).filter(word => word.length > 0).length;
         }
         
-        // Function to calculate time for a single card (page-count proxy)
         function estimateScreenTime(card) {
             if (!card) return 0;
 
@@ -717,7 +778,6 @@
             
             pageEquivalent += actionPages + dialoguePages;
 
-            // Round the estimate to the nearest tenth of a minute
             return Math.max(0.1, Math.round(pageEquivalent * 10) / 10);
         }
 
@@ -728,16 +788,15 @@
             document.getElementById('screen-time-estimate').innerHTML = `⏱️ Est. Time: **${time} min**`;
         }
         
-        // NEW FUNCTION: Calculates the total run time of the script
         function calculateTotalScriptTime() {
             let totalTime = 0;
             cards.forEach(card => {
                 totalTime += estimateScreenTime(card);
             });
-            return Math.round(totalTime * 10) / 10; // Round to one decimal place
+            return Math.round(totalTime * 10) / 10; 
         }
 
-        // Sequence Rendering 
+        // Sequence Rendering (unchanged)
         function renderSequenceTable(sequence) {
             const tbody = document.getElementById('sequenceBody');
             tbody.innerHTML = '';
@@ -762,7 +821,6 @@
                             CONT'D
                         </label>`;
                         
-                    // --- CHARACTER ROW (Character Name, Parenthetical, Context, Cont'd, Dialogue) ---
                     tbody.innerHTML += `<tr class="row-character" draggable="true" data-index="${i}" ondragstart="startDragSequence(event)" ondragover="dragOverSequence(event)" ondrop="dropSequence(event)">
                         <td>
                             <div class="dialog-character-group">
@@ -780,7 +838,6 @@
                         <td class="col-del" onclick="delSeq(${i})">×</td>
                     </tr>`;
                 } else if (item.type === 'Action') {
-                    // Action rows: Label, Style Dropdown, Content Textarea
                     const styleUpper = (item.style || '').toUpperCase();
                     let actionStyleLabel = 'ACTION';
                     
@@ -788,7 +845,6 @@
                         `<option value="${opt.value}" ${styleUpper === opt.value.toUpperCase() ? 'selected' : ''}>${opt.label}</option>`
                     ).join('');
 
-                    // --- ACTION ROW ---
                     tbody.innerHTML += `<tr class="row-action" draggable="true" data-index="${i}" ondragstart="startDragSequence(event)" ondragover="dragOverSequence(event)" ondrop="dropSequence(event)">
                         <td>${actionStyleLabel}</td>
                         <td>
@@ -836,20 +892,13 @@
         function updSeq(i, f, v) { 
             const item = cards.find(c => c.id === activeCardId).sequence[i];
             
-            // Handle Character fields
             if (f === 'content' || f === 'text' || f === 'parenthetical' || f === 'context') {
                 item[f] = v;
             } else if (f === 'contd') { 
                 item.contd = v; 
             }
-            
-            // Handle Action fields (Note: Action rows use 'text' for content and 'style' for type)
-            else if (f === 'text' && item.type === 'Action') {
-                 item[f] = v;
-            }
             else if (f === 'style' && item.type === 'Action') {
                  item[f] = v;
-                 // Rerender to potentially update the action label if it was a custom style
                  renderSequenceTable(cards.find(c => c.id === activeCardId).sequence);
             }
 
@@ -887,12 +936,13 @@
                 activeCardId = null; 
                 document.getElementById('editor').classList.add('hidden'); 
                 document.getElementById('empty-state').classList.remove('hidden');
+                renumberScenes(); // NEW: Renumber after deletion
                 saveData(); 
             } 
         }
 
 
-        // --- MONTAGE UI AND LOGIC ---
+        // --- MONTAGE UI AND LOGIC (unchanged) ---
         function toggleMontageEditor(header) {
             const isMontage = (header || document.getElementById('inp-header').value).toUpperCase().startsWith('MONTAGE');
             document.getElementById('montage-editor-block').classList.toggle('hidden', !isMontage);
@@ -964,7 +1014,11 @@
                 if(currentSearchTerm && !search.includes(currentSearchTerm)) return;
                 const li = document.createElement('li');
                 li.className = `card-item ${getColorClass(card.header)} ${card.id === activeCardId ? 'active' : ''}`;
-                li.innerHTML = `<strong>${card.header}</strong><br><small>${card.location || ''} | ${card.tags || ''}</small>`;
+                // Display the scene number in the sidebar
+                li.innerHTML = `
+                    <span style="font-size: 0.9em; font-weight: bold; color: #f1c40f; margin-right: 5px;">#${card.sceneNumber || 'N/A'}</span>
+                    <strong>${card.header}</strong><br>
+                    <small>${card.location || ''} | ${card.tags || ''}</small>`;
                 li.onclick = () => { switchView('editor'); loadEditor(card.id); };
                 if(!currentSearchTerm) { li.draggable = true; li.dataset.index = idx; addDragEvents(li); }
                 list.appendChild(li);
@@ -977,10 +1031,19 @@
             el.addEventListener('dragenter', function() { this.classList.add('over'); });
             el.addEventListener('dragleave', function() { this.classList.remove('over'); });
             el.addEventListener('drop', function() { swapItems(dragStartIndex, +this.dataset.index); this.classList.remove('over'); this.style.opacity = '1'; });
+            el.addEventListener('dragend', function() { this.style.opacity = '1'; });
         }
-        function swapItems(f, t) { const i = cards[f]; cards.splice(f, 1); cards.splice(t, 0, i); saveData(); if(currentView==='editor') renderList(); else renderStoryboard(); }
+        function swapItems(f, t) { 
+            const i = cards[f]; 
+            cards.splice(f, 1); 
+            cards.splice(t, 0, i); 
+            renumberScenes(); // Rerender numbers after reordering
+            saveData(); 
+            if(currentView==='editor') renderList(); 
+            else renderStoryboard(); 
+        }
 
-        // --- STORYBOARD RENDERING (same as before) ---
+        // --- STORYBOARD RENDERING ---
         function renderStoryboard() {
             const grid = document.getElementById('boardGrid');
             grid.innerHTML = '';
@@ -991,7 +1054,7 @@
                 div.className = `board-card ${getColorClass(card.header)}`;
                 div.style.cssText = 'background: var(--card-bg); padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 6px solid; min-height: 150px; position: relative; cursor: pointer;';
                 div.innerHTML = `
-                    <div style="font-size: 0.8em; opacity: 0.6; margin-bottom: 5px;">#${idx + 1}</div>
+                    <div style="font-size: 0.8em; opacity: 0.6; margin-bottom: 5px;">#${card.sceneNumber} / Index: ${idx + 1}</div>
                     <strong style="display: block; margin-bottom: 5px;">${card.header}</strong>
                     <p style="font-size: 0.9em; margin: 0 0 10px 0; max-height: 50px; overflow: hidden; opacity: 0.8;">${card.notes.substring(0, 100)}...</p>
                     <small style="font-style: italic; display: block; margin-top: 10px;">Location: ${card.location || 'N/A'}</small>
@@ -1003,7 +1066,7 @@
         }
 
 
-        // --- EXPORT / IMPORT (same as before) ---
+        // --- EXPORT / IMPORT (unchanged) ---
         function saveJSON() {
             const blob = new Blob([JSON.stringify({cards: cards, metadata: scriptMetadata})], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
@@ -1052,8 +1115,7 @@
                                 const prefix = styleUpper.startsWith('INTERTITLE') ? 'INTERTITLE' : 'TITLE CARD';
                                 f += `${prefix}: ${s.text}\n\n`; 
                             } else if (ALL_TRANSITIONS_AND_ACTIONS.includes(styleUpper)) {
-                                // Fountain formatting for transitions and special actions
-                                if (s.text) f += s.text + "\n"; // Print action text if present
+                                if (s.text) f += s.text + "\n"; 
                                 f += `${styleUpper}\n\n`; 
                             } else {
                                 f += s.text + "\n\n";
@@ -1091,6 +1153,7 @@
                         }
                         
                         cards.forEach(card => {
+                            if (!card.sceneNumber) card.sceneNumber = ''; // New migration for scene number
                             if (card.dialog && !card.sequence) {
                                 card.sequence = card.dialog.map(d => ({ type: 'Character', content: d.character, text: d.text, context: '', contd: false, parenthetical: '' }));
                                 delete card.dialog;
@@ -1115,8 +1178,8 @@
                     successMessage = "Imported " + cards.length + " scenes from text/fountain.";
                 }
                 
+                renumberScenes(); // NEW: Renumber newly loaded scenes
                 saveData(); 
-                if (successMessage) { console.log(successMessage); }
 
                 if (cards.length > 0) {
                     switchView('editor'); 
@@ -1148,20 +1211,22 @@
                 if (!currentCard || actionBuffer.length === 0) return;
                 
                 let style = '';
-                // Check only the last line for specific transition formatting
+                let text = actionBuffer.join('\n');
+
                 const lastLine = actionBuffer[actionBuffer.length - 1].toUpperCase().trim();
                 const matchedStyle = ALL_TRANSITIONS_AND_ACTIONS.find(s => s === lastLine); 
                 
-                if (matchedStyle && ['FADE IN', 'FADE OUT', 'CUT TO', 'DISSOLVE TO'].includes(matchedStyle)) {
+                if (matchedStyle && ['FADE IN', 'FADE OUT', 'CUT TO', 'DISSOLVE TO', 'FADE TO BLACK'].includes(matchedStyle)) {
                     style = matchedStyle;
                     actionBuffer.pop(); 
+                    text = actionBuffer.join('\n');
                 }
 
-                if (actionBuffer.length > 0 || style !== '') {
+                if (text.trim().length > 0 || style !== '') {
                     currentCard.sequence.push({ 
                         type: 'Action', 
                         style: style, 
-                        text: actionBuffer.join('\n') 
+                        text: text.trim() 
                     }); 
                 }
                 
@@ -1179,7 +1244,7 @@
                 if(!trim) { flushActionBuffer(); return; } 
 
                 const trimUpper = trim.toUpperCase();
-
+                
                 if (isTitlePage) {
                     if (headerRegex.test(trim) || trim.startsWith('.')) { 
                         isTitlePage = false; 
@@ -1193,18 +1258,19 @@
                         return;
                     } 
                     else if (ALL_TRANSITIONS_AND_ACTIONS.includes(trimUpper)) {
-                        // Transitions on the title page go to metadata
                         scriptMetadata.transitions.push(trimUpper);
                         return;
                     }
-                    if (isTitlePage) return; // Skip if we are still processing the title page
+                    if (isTitlePage) return; 
                 }
                 
+                // 1. SCENE HEADER CHECK
                 if(headerRegex.test(trim) || trim.startsWith('.')) {
                     flushActionBuffer(true); 
                     const headerText = trim.replace(/^\./, '').trim();
                     const locationText = extractLocation(headerText);
-                    currentCard = { id: Date.now() + Math.random(), header: headerText, location: locationText, chars:'', props:'', notes:'', tags:'', sequence:[], montage:[] }; 
+                    // NEW: Initialize sceneNumber as empty for renumberScenes to handle
+                    currentCard = { id: Date.now() + Math.random(), header: headerText, location: locationText, chars:'', props:'', notes:'', tags:'', sequence:[], montage:[], sceneNumber: '' }; 
                     cards.push(currentCard);
                     actionBuffer = []; 
                 } 
@@ -1214,17 +1280,46 @@
                     const charMatch = trim.match(characterLineRegex); 
                     let lastItem = currentCard.sequence[currentCard.sequence.length - 1];
 
-                    // *** CRITICAL CHECK: Is it a known ALL-CAPS Action/Transition element? ***
-                    if (ALL_TRANSITIONS_AND_ACTIONS.includes(trimUpper) && !isMontageBlock) {
+                    // 2. PRIORITY CHECK: Transition/Special Action at start of line
+                    let isSpecialAction = false;
+                    const cleanUpperTrim = trimUpper.replace(/\.$/, '').trim(); 
+                    
+                    const matchedTransition = ALL_TRANSITIONS_AND_ACTIONS.find(s => 
+                        cleanUpperTrim.startsWith(s)
+                    );
+
+                    if (matchedTransition) {
                         flushActionBuffer();
+                        isSpecialAction = true;
+                        
+                        let remainingText = trim.substring(matchedTransition.length).trim();
+                        if (remainingText.startsWith(':')) remainingText = remainingText.substring(1).trim();
+                        if (remainingText.endsWith('.')) remainingText = remainingText.substring(0, remainingText.length - 1).trim();
+
                         currentCard.sequence.push({ 
                             type: 'Action', 
-                            style: trimUpper, 
-                            text: '' 
+                            style: matchedTransition, 
+                            text: remainingText 
                         });
                     }
+
+                    if (isSpecialAction) return;
+
+
+                    // 3. TITLE CARD CHECK
+                    else if (trimUpper.startsWith('TITLE CARD:') || trimUpper.startsWith('INTERTITLE:')) {
+                        flushActionBuffer(); 
+                        const prefix = trimUpper.startsWith('INTERTITLE:') ? 'INTERTITLE' : 'TITLE CARD';
+                        const text = trim.substring(trim.indexOf(':') + 1).trim();
+                        currentCard.sequence.push({ type: 'Action', text: text, style: prefix });
+                    }
                     
-                    // Is it a character line?
+                    // 4. MONTAGE ITEM CHECK
+                    else if (isMontageBlock && trim.startsWith('--')) {
+                        currentCard.montage.push(trim.substring(2).trim());
+                    }
+                    
+                    // 5. CHARACTER CHECK
                     else if(charMatch && !isMontageBlock) {
                         flushActionBuffer(); 
                         
@@ -1258,18 +1353,8 @@
                         });
                         lastItem = currentCard.sequence[currentCard.sequence.length - 1]; 
                     } 
-                    
-                    else if (trimUpper.startsWith('TITLE CARD:') || trimUpper.startsWith('INTERTITLE:')) {
-                        flushActionBuffer(); 
-                        const prefix = trimUpper.startsWith('INTERTITLE:') ? 'INTERTITLE' : 'TITLE CARD';
-                        const text = trim.substring(trim.indexOf(':') + 1).trim();
-                        currentCard.sequence.push({ type: 'Action', text: text, style: prefix });
-                    }
-                    
-                    else if (isMontageBlock && trim.startsWith('--')) {
-                        currentCard.montage.push(trim.substring(2).trim());
-                    }
-                    
+
+                    // 6. PARENTHETICAL CHECK
                     else if (trim.startsWith('(') && trim.endsWith(')')) {
                         if (lastItem && lastItem.type === 'Character' && !lastItem.text) {
                             const cleanParenthetical = trim.replace(/[()]/g, '').trim();
@@ -1279,6 +1364,7 @@
                         }
                     } 
                     
+                    // 7. DIALOGUE / ACTION LINE
                     else if (lastItem && lastItem.type === 'Character') {
                         if (lastItem.text && isLikelyAction(trim)) {
                             actionBuffer.push(trim);
@@ -1288,7 +1374,6 @@
                         }
                     }
                     else {
-                        // Standard action line or transition that didn't match the header/tag sections
                         actionBuffer.push(trim);
                     }
                 }
@@ -1307,15 +1392,11 @@
                 }
                 card.chars = Array.from(charSet).join(', ');
             });
-
-            if(cards.length === 0) console.log("No scenes found.");
         }
 
-        // --- STATS & SCRIPT ---
+
+        // --- SCRIPT GENERATION ---
         
-        // --- LINE COUNTING HELPERS (NEW) ---
-        
-        // Use a 4-word per line estimate for dialogue line calculation
         const DIALOGUE_WORDS_PER_LINE = 4; 
         const MAX_LINES_PER_PAGE = 55;
         
@@ -1325,28 +1406,23 @@
             const wordCount = countWords(text);
             
             if (element === 'header') {
-                lines = 2; // 1 for header, 1 blank line
+                lines = 2; 
             } else if (element === 'action' || element === 'notes') {
-                // Estimate based on word count for action text
                 lines = Math.ceil(wordCount / 10) + 1; 
             } else if (element === 'transition' || element === 'title') {
-                lines = 2; // 1 for element, 1 blank line
+                lines = 2; 
             } else if (element.type === 'Character') {
-                // Character name line (includes V.O./CONT'D inline parentheticals)
                 lines += 1;
                 
-                // Standard parenthetical line (e.g., (turning))
                 const parentheticals = element.parenthetical ? element.parenthetical.split(',').filter(p => p.trim().length > 0) : [];
                 if (parentheticals.length > 0) lines += 1;
                 
-                // Dialogue
                 lines += Math.ceil(wordCount / DIALOGUE_WORDS_PER_LINE);
-                lines += 1; // Trailing blank line after dialogue block
+                lines += 1; 
             } else if (element === 'montage_item') {
                 lines = 1; 
             }
             
-            // Ensure minimum of 1 line for any element that renders
             return Math.max(1, lines);
         }
         
@@ -1361,14 +1437,14 @@
             
             // --- 1. TITLE PAGE ---
             html += `<h1 style="text-align: center; margin-top: 200px; font-size: 36pt;">${scriptMetadata.title || 'UNTITLED SCREENPLAY'}</h1>`;
-            lineCount += 10; // Placeholder line count for the title
+            lineCount += 10; 
             
             if (scriptMetadata.author) {
                 html += `<p style="text-align: center; margin-top: 100px;">Written by<br><b>${scriptMetadata.author}</b></p>`;
-                lineCount += 5; // Placeholder line count for the author
+                lineCount += 5; 
             }
             
-            insertPageBreak(); // Hard page break after title page
+            insertPageBreak(); 
             
             // --- 2. GLOBAL TRANSITIONS ---
             scriptMetadata.transitions.forEach(t => {
@@ -1382,10 +1458,14 @@
             // --- 3. SCENES ---
             cards.forEach(c => {
                 
+                // NEW: Insert Scene Number (Left Aligned)
+                html += `<div style="text-align: left; margin-top: 1.5em; margin-bottom: 0.5em; font-weight: bold;">${c.sceneNumber}</div>`;
+                lineCount += 1; 
+
                 // SCENE HEADER
                 const headerLines = getElementLineCount('header');
                 if (lineCount + headerLines > MAX_LINES_PER_PAGE) insertPageBreak();
-                html += `<div class="sc-header">${c.header}</div>`;
+                html += `<div class="sc-header" style="margin-top: 0.5em;">${c.header}</div>`; 
                 lineCount += headerLines;
                 
                 // OPENING ACTION / NOTES
@@ -1411,18 +1491,16 @@
                     }
                 } 
                 
-                // SEQUENCE ELEMENTS (Dialogue and Inter-Dialogue Action)
+                // SEQUENCE ELEMENTS
                 else {
                     c.sequence.forEach(s => {
                         let lines = 0;
                         
                         if (s.type === 'Character') {
-                            // Dialogue line counting is complex due to parentheticals
                             lines = getElementLineCount(s, s.text);
                             
                             if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
 
-                            // HTML generation for character block (unchanged from v6.11)
                             const inlineElements = []; 
                             const standardParenthetical = [];
 
@@ -1462,14 +1540,12 @@
                                 
                                 html += `<div class="sc-intertitle">${s.text}</div>`;
                             } else if (ALL_TRANSITIONS_AND_ACTIONS.includes(styleUpper) && styleUpper !== '' ) {
-                                // Transition
                                 lines = getElementLineCount('transition', s.text);
                                 if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
                                 
                                 if (s.text) html += `<div class="sc-action-inline">${s.text}</div>`; 
                                 html += `<div class="sc-header" style="text-align: right; text-decoration: none; margin-top: 1em;">${styleUpper}.</div>`;
                             } else {
-                                // Action Block
                                 lines = getElementLineCount('action', s.text);
                                 if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
                                 
@@ -1490,11 +1566,12 @@
                     lineCount += lines;
                 });
 
-                if (lineCount > 0) insertPageBreak(); // Ensure break after every scene/end of script
+                if (lineCount > 0) insertPageBreak(); 
             });
             document.getElementById('script-content').innerHTML = html;
         }
 
+        // --- STATS & CHARACTER MANAGEMENT UI (unchanged) ---
         function showStats() {
             let intC=0, extC=0, dayC=0, nightC=0;
             cards.forEach(c => {
@@ -1505,7 +1582,6 @@
             const tot = cards.length || 1; 
             const totalTime = calculateTotalScriptTime(); 
             
-            // --- Character Stats Calculation (using resolveCharacterName) ---
             const characterStats = {};
 
             cards.forEach(c => {
@@ -1545,7 +1621,6 @@
             
             sortedChars.forEach(([name, stats]) => {
                 const description = scriptMetadata.characterProxies[name]?.description || '';
-                const totalScenes = cards.length;
                 const scenesParticipated = stats.scenes.size;
                 const maxLines = sortedChars[0][1].lines || 1; 
 
@@ -1564,9 +1639,8 @@
             document.getElementById('stats-modal').style.display = 'flex';
         }
         
-        // --- CHARACTER MANAGEMENT UI ---
         function showCharacterManagement() {
-            updateCharacterList(); // Refresh data just in case
+            updateCharacterList(); 
             renderCharacterTable();
             document.getElementById('char-modal').style.display = 'flex';
         }
@@ -1575,10 +1649,8 @@
             const tbody = document.getElementById('charManagementBody');
             tbody.innerHTML = '';
             
-            // Get all unique character names including those used as proxies
             const allCharNames = getAllCharacterNames();
             
-            // Create a list of all primary (non-proxying) characters for the dropdown
             const primaryCharacters = Array.from(new Set(
                 Object.values(scriptMetadata.characterProxies).map(p => p.proxyFor)
             )).sort();
@@ -1588,7 +1660,6 @@
                 const charData = scriptMetadata.characterProxies[name] || { proxyFor: name, description: '' };
                 const isProxy = charData.proxyFor !== name;
 
-                // Proxy dropdown options (including self)
                 const proxyOptions = primaryCharacters.map(p => 
                     `<option value="${p}" ${p === charData.proxyFor ? 'selected' : ''}>${p}</option>`
                 ).join('');
@@ -1618,7 +1689,7 @@
             if (scriptMetadata.characterProxies[name]) {
                 scriptMetadata.characterProxies[name].proxyFor = proxyFor;
                 saveData();
-                renderCharacterTable(); // Re-render to update the PROXY tag and disable description field
+                renderCharacterTable(); 
             }
         }
 
