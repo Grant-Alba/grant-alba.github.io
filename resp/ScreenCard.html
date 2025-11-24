@@ -23,7 +23,7 @@
 
         body { margin: 0; font-family: system-ui, -apple-system, sans-serif; display: flex; height: 100vh; background: var(--bg); color: var(--text); overflow: hidden; transition: background 0.3s; }
         
-        /* --- LAYOUT --- */
+        /* --- LAYOUT & UI (Standard View) --- */
         #sidebar { width: 300px; background: var(--sidebar); color: white; display: flex; flex-direction: column; border-right: 1px solid #1a252f; flex-shrink: 0; transition: width 0.3s; }
         #main { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
         
@@ -198,15 +198,15 @@
         }
         
         #script-content { 
-            max-width: 8.5in; /* Standard US Letter Width */
+            max-width: 8.5in; 
             margin: 0 auto; 
             box-shadow: 0 0 10px rgba(0,0,0,0.2); 
             background: white;
             
-            /* Enforce Fixed Pitch/Height for Print Preview */
+            /* Enforce Fixed Pitch for Print Preview */
             font-family: 'Courier Prime', 'Courier New', monospace; 
             font-size: 12pt; 
-            line-height: 1.2em; /* Ensure consistent line height */
+            /* Line height removed from content container to prevent conflicts */
         }
 
         /* Page container to apply print margins/breaks */
@@ -216,10 +216,7 @@
             height: 11in; /* Standard US Letter Height */
             background: white;
             
-            /* Only apply page break in print mode */
             page-break-after: always; 
-            
-            /* Use fixed position for all lines inside */
             position: relative;
         }
         
@@ -232,35 +229,45 @@
             color: black;
         }
 
-        /* All line elements share this base style for alignment */
+        /* CRITICAL FIX: Ensure every line element has the exact, necessary line height */
         #script-content > div:not(.sc-title-page) > div {
-            white-space: pre; /* Essential for &nbsp; padding to work */
+            white-space: pre; 
             margin: 0; 
             padding: 0;
             text-indent: 0;
-            line-height: 1.2em; /* Fixed line height */
+            line-height: 1.2em !important; /* Fixed line height is crucial for 55 lines per page */
             color: black;
         }
 
         /* Special Styling for specific line types */
         .sc-header { text-transform: uppercase; font-weight: bold; }
         .sc-transition { text-align: right; }
-        .sc-page-number { text-align: right; font-size: 10pt; line-height: 1em; margin-bottom: 0.5em; position: absolute; top: 0.75in; right: 1in; }
+        .sc-page-number { text-align: right; font-size: 10pt; line-height: 1em; position: absolute; top: 0.75in; right: 1in; }
         .sc-intertitle { text-align: center; font-weight: bold; }
         
         /* --- FINAL PRINT STYLES --- */
         @media print {
-            /* 1. HIDE UI PANELS */
+            /* 1. CRITICAL: FORCE HIDE ALL UI ELEMENTS */
+            body > *:not(#main) {
+                display: none !important;
+            }
+
+            /* 2. CRITICAL: HIDE SPECIFIC MAIN/VIEW ELEMENTS */
             #sidebar, 
             #editor-view, 
             #storyboard-view,
             #print-button,
-            #main > .view-container:not(#script-view) {
+            /* Force hide all views except script-view */
+            #main > .view-container:not(#script-view),
+            #stats-modal,
+            #char-modal,
+            #metadata-modal {
                 display: none !important;
                 visibility: hidden !important; 
+                opacity: 0 !important; /* Triple redundancy for hiding */
             }
             
-            /* 2. MAIN CONTAINER */
+            /* 3. MAIN CONTAINER MUST BE DISPLAY: BLOCK */
             #main {
                 display: block !important;
                 width: 100% !important;
@@ -272,7 +279,7 @@
                 z-index: 9999 !important;
             }
 
-            /* 3. SCRIPT VIEW */
+            /* 4. SCRIPT VIEW MUST BE DISPLAY: BLOCK */
             #script-view {
                 display: block !important; 
                 width: 100% !important;
@@ -283,27 +290,16 @@
                 background: white !important;
             }
 
-            /* 4. CONTENT WRAPPER */
-            #script-content {
-                box-shadow: none !important; 
-                max-width: none !important; 
-                width: auto !important;
-                margin: 0 !important; 
-                padding: 0 !important; /* Margins are handled by .sc-page */
-                font-size: 12pt !important;
-                line-height: 1.2em !important;
-            }
-            
             /* 5. PAGE CONTAINER - Final Print Formatting */
             .sc-page {
-                /* Standard A4/Letter size */
                 width: 8.5in; 
                 height: 11in; 
+                /* REINFORCED MARGINS - MUST BE EXACT */
                 padding: 1in 1in 1in 1.5in !important; /* Top, Right, Bottom, Left */
                 margin: 0 !important;
                 box-sizing: border-box;
                 background: white !important;
-                page-break-after: always !important; /* Ensure separation */
+                page-break-after: always !important; 
             }
             
             .sc-title-page {
@@ -319,7 +315,7 @@
 
             /* 6. PAGE NUMBER OVERRIDE */
             .sc-page-number {
-                top: 0.5in !important; /* Move page number up to the standard 0.5in margin */
+                top: 0.5in !important; 
                 right: 1in !important;
             }
         }
@@ -427,7 +423,7 @@
         </div>
     </div>
 
-    <div id="stats-modal" onclick="this.style.display='none'">
+    <div id="stats-modal" onclick="this.style.display='none'" style="display: none;">
         <div class="stats-box" onclick="event.stopPropagation()">
             <h2 style="margin-top:0">Script Statistics</h2>
             <div id="stats-content"></div>
@@ -435,7 +431,7 @@
         </div>
     </div>
     
-    <div id="char-modal" onclick="this.style.display='none'">
+    <div id="char-modal" onclick="this.style.display='none'" style="display: none;">
         <div class="stats-box" onclick="event.stopPropagation()" style="width: 600px;">
             <h2 style="margin-top:0">🎭 Character Management</h2>
             <p>Use the **Proxy For** dropdown to merge generic or temporary character names into their final name. This helps with consistency and statistics.</p>
@@ -456,7 +452,7 @@
         </div>
     </div>
 
-    <div id="metadata-modal" onclick="this.style.display='none'">
+    <div id="metadata-modal" onclick="this.style.display='none'" style="display: none;">
         <div class="stats-box" onclick="event.stopPropagation()" style="width: 450px;">
             <h2 style="margin-top:0">📝 Script Metadata</h2>
             <p>Manage the **Title**, **Author**, and **Global Transitions** that appear on the title page and before the first scene.</p>
