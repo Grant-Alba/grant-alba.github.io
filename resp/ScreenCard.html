@@ -232,20 +232,45 @@
         .view-container { display: none; }
         .view-container.visible { display: block; }
         
-        /* STATS MODAL STYLES */
-        #stats-modal, #char-modal, #metadata-modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center;
-            z-index: 1000;
+        /* --- NEW PRINT STYLES --- */
+        @media print {
+            body { 
+                /* Reset overall body layout */
+                display: block; 
+                height: auto; 
+                overflow: visible !important; 
+                background: white;
+            }
+            #sidebar, 
+            #main { 
+                display: none !important; /* Hide the sidebar and the main container */
+            }
+            /* Show only the script view */
+            #script-view {
+                display: block !important; 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                height: auto;
+                padding: 0; 
+                margin: 0;
+            }
+            /* Hide the Print button itself */
+            #print-button {
+                display: none !important;
+            }
+            /* Ensure the script content uses standard print paper sizing */
+            #script-content { 
+                box-shadow: none !important; 
+                width: 100%; 
+                max-width: none; 
+                margin: 0; 
+                padding: 1in; /* Standard margin for print documents */
+                background: white; 
+                color: black;
+            }
         }
-        .stats-box {
-            background: var(--card-bg); padding: 30px; border-radius: 8px; width: 350px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3); color: var(--text);
-        }
-        .stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .stat-bar-bg { flex-grow: 1; height: 10px; background: var(--border); margin-left: 10px; border-radius: 5px; }
-        .stat-bar-fill { height: 100%; background: var(--accent); border-radius: 5px; transition: width 0.5s; }
-        .total-time-stat { font-size: 1.3em; font-weight: bold; color: var(--accent); border-top: 1px solid var(--border); padding-top: 15px; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -346,7 +371,7 @@
 
         <div id="script-view" class="view-container">
             <div id="script-content"></div>
-            <button onclick="window.print()" style="position:fixed; bottom:20px; right:20px; padding:10px 20px; background:#27ae60; color:white; border:none; cursor:pointer;">Print PDF</button>
+            <button id="print-button" onclick="window.print()" style="position:fixed; bottom:20px; right:20px; padding:10px 20px; background:#27ae60; color:white; border:none; cursor:pointer;">Print PDF</button>
         </div>
     </div>
 
@@ -863,7 +888,7 @@
                                 ${styleOptions}
                             </select>
                         </td>
-                        <td>
+                        <td class="col-content-dialog">
                             <textarea class="action-content-textarea" rows="4" placeholder="Action content..." oninput="updSeq(${i}, 'text', this.value)">${item.text || ''}</textarea>
                         </td>
                         <td class="col-del" onclick="delSeq(${i})">×</td>
@@ -1659,15 +1684,11 @@
             
             const allCharNames = getAllCharacterNames();
             
-            // --- FIXED LOGIC START ---
+            // --- FIXED PROXY LOGIC ---
             const allUniqueNames = new Set(allCharNames);
-            
-            // Add any existing proxy targets that might no longer be in the script
             Object.values(scriptMetadata.characterProxies).forEach(p => allUniqueNames.add(p.proxyFor));
-            
-            // Use all unique detected names as the pool for the Proxy For list.
             const primaryCharacters = Array.from(allUniqueNames).sort();
-            // --- FIXED LOGIC END ---
+            // --------------------------
 
 
             allCharNames.forEach(name => {
