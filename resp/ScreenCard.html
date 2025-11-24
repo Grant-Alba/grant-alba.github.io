@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SceneCard Writer v6.4 (Structured Dialogue Tags)</title>
+    <title>SceneCard Writer v6.7 (Action Row Style Dropdown)</title>
     <style>
         /* --- THEME VARIABLES --- */
         :root { 
@@ -70,10 +70,13 @@
         /* Custom cell for Dialogue context/contd controls */
         .col-dialog-controls {
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-start;
             padding: 8px;
             gap: 5px;
             font-size: 0.8em;
+            height: 100%;
         }
         .col-dialog-controls select {
             padding: 5px;
@@ -88,16 +91,71 @@
 
         .sequence-input { border: none; background: transparent; padding: 8px; border-bottom: 1px solid transparent; width: 100%; box-sizing: border-box; }
         .sequence-input:focus { border-bottom: 1px solid var(--accent); outline: none; }
+        
+        /* Dialogue row specific field grouping */
+        .dialog-character-group {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
 
-        .col-content textarea { 
-            width: 100%; min-height: 50px; resize: vertical; border: none; 
+        /* Character/Parenthetical cell */
+        .dialog-character-group input { 
+            border-bottom: 1px solid var(--border); 
+            padding: 8px; 
+            box-sizing: border-box;
+            background: var(--input-bg);
+        }
+        .dialog-character-group input:focus {
+            border-bottom: 1px solid var(--accent);
+        }
+        /* Overriding the last border for the parenthetical input */
+        .dialog-character-group input:last-child {
+            border-bottom: none;
+        }
+
+        /* Dialogue/Action Text cell */
+        .col-content-dialog textarea { 
+            width: 100%; min-height: 80px; resize: vertical; border: none; 
             border-radius: 0; background: transparent; padding: 8px; box-sizing: border-box; 
             font-family: inherit; color: inherit;
         }
-        .col-content textarea:focus { border-bottom: 1px solid var(--accent); outline: none; }
+        .col-content-dialog textarea:focus { border-bottom: 1px solid var(--accent); outline: none; }
         
+        /* Action row specific layout */
+        .row-action td { padding: 0; }
+        .row-action td:first-child { 
+            padding: 8px;
+            color: #7f8c8d; 
+            font-size: 0.8em; 
+            font-style: italic;
+        } 
+        
+        .row-action .action-style-select {
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding: 8px;
+            background: var(--input-bg);
+            border-right: 1px solid var(--border);
+            border-left: 1px solid var(--border);
+            box-sizing: border-box;
+        }
+
+        .row-action .action-content-textarea {
+            width: 100%; 
+            min-height: 80px; 
+            resize: vertical; 
+            border: none; 
+            border-radius: 0; 
+            background: transparent; 
+            padding: 8px; 
+            box-sizing: border-box; 
+            font-family: inherit; 
+            color: inherit;
+        }
+
         .col-del { cursor: pointer; color: #e74c3c; text-align: center; }
-        .col-add { cursor: pointer; color: #2ecc71; text-align: center; font-size: 1.2rem; }
         
         /* SCRIPT VIEW */
         #script-content { 
@@ -110,7 +168,6 @@
         
         /* Character and Dialogue Formatting */
         .sc-character-block { 
-            /* FIX: Use flex to center and keep name and inline tags together */
             display: flex; 
             justify-content: center; 
             align-items: center; 
@@ -237,10 +294,11 @@
                 <div id="sequence-editor-block">
                     <label>Dialogue and Inter-Dialogue Action Sequence</label>
                     <table class="sequence-table">
-                        <thead><tr><th width="25%">Character</th><th width="25%">Context / Continuation</th><th width="40%">Parenthetical / Content</th><th width="5%"></th></tr></thead>
+                        <thead><tr><th width="25%">Character / Action</th><th width="15%">Context / Style</th><th>Dialogue / Action Content</th><th width="5%"></th></tr></thead>
                         <tbody id="sequenceBody"></tbody>
                     </table>
                     <button onclick="addSequenceItem('Character')" style="margin-top:10px; cursor:pointer;">+ Add Dialogue Line</button>
+                    <button onclick="addSequenceItem('Action', null, 'TITLE CARD')" style="margin-top:10px; cursor:pointer;">+ Add Title Card</button>
                     <button onclick="addSequenceItem('Action')" style="margin-top:10px; cursor:pointer;">+ Add Action Block</button>
                 </div>
 
@@ -269,13 +327,22 @@
     <script>
         // --- STATE ---
         let cards = [];
-        // UPDATED: Added 'location' field
         const EMPTY_CARD = { id: Date.now(), header: 'INT. NEW SCENE - DAY', location: 'NEW SCENE', chars: '', props: '', notes: '', tags: '', sequence: [], montage: [] };
         let scriptMetadata = { title: 'UNTITLED SCREENPLAY', author: '', transitions: [] }; 
         let activeCardId = null;
         let dragStartIndex;
         let currentSearchTerm = '';
         let currentView = 'editor'; 
+        
+        const ACTION_STYLES = [
+            { value: '', label: '' },
+            { value: 'TITLE CARD', label: 'TITLE CARD' },
+            { value: 'INTERTITLE', label: 'INTERTITLE' },
+            { value: 'FADE IN', label: 'FADE IN' },
+            { value: 'FADE OUT', label: 'FADE OUT' },
+            { value: 'FADE TO BLACK', label: 'FADE TO BLACK' },
+        ];
+
 
         // --- INIT ---
         window.onload = () => {
@@ -284,25 +351,29 @@
             const theme = localStorage.getItem('theme');
             if (saved) {
                 cards = JSON.parse(saved);
-                // Migration logic: Map old 'style' field to new structured fields and rename 'style' to 'parenthetical'
+                
                 cards.forEach(card => {
                     if (card.dialog && !card.sequence) {
-                        // Migration for old Dialogue array to Sequence
-                        card.sequence = card.dialog.map(d => ({ 
-                            type: 'Character', content: d.character, text: d.text, 
-                            context: '', contd: false, parenthetical: ''
-                        }));
+                        card.sequence = card.dialog.map(d => ({ type: 'Character', content: d.character, text: d.text, context: '', contd: false, parenthetical: '' }));
                         delete card.dialog;
                     }
                     
                     card.sequence.forEach(s => {
                         if (s.type === 'Character') {
-                            // Run the new migration logic for dialogue fields
                             migrateDialogueFields(s);
+                        } else if (s.type === 'Action') {
+                            // Ensure Action rows use 'text' for content if 'content' exists
+                            if (s.content !== undefined) {
+                                s.text = s.content;
+                                delete s.content;
+                            }
+                            // Ensure style exists for Action rows even if null
+                            if (s.style === undefined) {
+                                s.style = '';
+                            }
                         }
                     });
 
-                    // Ensure new fields exist on all cards/items for clean loading
                     if (!card.location) { card.location = extractLocation(card.header); }
                 });
             }
@@ -312,35 +383,32 @@
             renderList();
         };
 
+        // Ensures older data has the new structured fields
         function migrateDialogueFields(s) {
-            // Check for older data structures and initialize new fields
             if (!s.context) s.context = '';
             if (s.contd === undefined) s.contd = false;
 
-            // Migration from old combined 'style' field to new structured fields
             if (s.style !== undefined && s.type === 'Character') {
-                const parts = s.style.split(',').map(p => p.trim().toUpperCase());
+                const parts = s.style.split(',').map(p => p.trim());
                 let parentheticals = [];
 
                 parts.forEach(p => {
-                    if (p === 'V.O.') {
+                    const upperP = p.toUpperCase();
+                    if (upperP === 'V.O.' || upperP === 'V.O') {
                         s.context = 'V.O.';
-                    } else if (p === 'O.S.') {
+                    } else if (upperP === 'O.S.' || upperP === 'O.S') {
                         s.context = 'O.S.';
-                    } else if (p === 'CONT\'D' || p === 'CONT\'D.') {
+                    } else if (upperP.includes('CONT\'D')) {
                         s.contd = true;
                     } else if (p.length > 0) {
-                        // If it's none of the above, it's a parenthetical action/tone
                         parentheticals.push(p);
                     }
                 });
 
-                // Rename and assign the cleaned up parenthetical content
                 s.parenthetical = parentheticals.join(', ');
-                delete s.style; // Remove old field
+                delete s.style;
             } 
             
-            // If the old field was already renamed, ensure 'parenthetical' exists
             if (s.parenthetical === undefined && s.style === undefined) {
                 s.parenthetical = '';
             }
@@ -354,14 +422,11 @@
         function switchView(viewName) {
             currentView = viewName;
             
-            // 1. Hide all view containers and set correct sidebar visibility
             document.querySelectorAll('.view-container').forEach(el => el.classList.remove('visible'));
             document.getElementById('sidebar').style.display = (viewName === 'editor') ? 'flex' : 'none';
             
-            // 2. Show the relevant view and run its specific renderer
             if (viewName === 'editor') { 
                 document.getElementById('editor-view').classList.add('visible'); 
-                // Only call loadEditor if an ID is active, to prevent showing partial content
                 if (activeCardId) loadEditor(activeCardId, false);
                 renderList(); 
             }
@@ -375,7 +440,6 @@
             }
         }
 
-        // --- LOCATION EXTRACTION LOGIC ---
         function extractLocation(header) {
             if (!header) return '';
             const upperHeader = header.toUpperCase().trim();
@@ -387,40 +451,29 @@
 
             if (parts.length >= 2) {
                 let locationPart = parts[0];
-                
                 const prefixRegex = /^(INT|EXT|I\/E|INT\/EXT|EST|I\/E)\.\s*/;
                 locationPart = locationPart.replace(prefixRegex, '').trim();
-                
                 return locationPart;
             } else if (parts.length === 1) {
                 const prefixRegex = /^(INT|EXT|I\/E|INT\/EXT|EST|I\/E)\.\s*/;
                 return upperHeader.replace(prefixRegex, '').trim();
             }
-
             return upperHeader;
         }
 
         function updateHeader(value) {
-            // 1. Update the header field in the data model
             updateCurrentCard('header', value);
-
-            // 2. Extract and update the location field
             const location = extractLocation(value);
             updateCurrentCard('location', location);
             document.getElementById('inp-location').value = location;
-
-            // 3. Handle Montage block visibility
             toggleMontageEditor(value);
         }
         
-        // --- CORE DATA ---
         function addNewCard() {
             const newCard = { ...EMPTY_CARD, id: Date.now() }; 
             newCard.location = extractLocation(newCard.header); 
-
             cards.push(newCard);
             activeCardId = newCard.id;
-            
             switchView('editor'); 
             saveData(); 
             loadEditor(newCard.id);
@@ -484,19 +537,11 @@
             
             if (!sequence) return;
 
-            // The header changes based on the first column for actions
-            const actionHeader = `<tr><th width="25%">Character</th><th width="25%">Context / Continuation</th><th width="40%">Parenthetical / Content</th><th width="5%"></th></tr>`;
-            const actionHeaderSimplified = `<tr><th width="25%">Character/Action</th><th width="15%">Style/Type</th><th>Content</th><th width="5%"></th></tr>`;
-
             sequence.forEach((item, i) => {
-                let actionStyleLabel = 'Action';
                 
                 if (item.type === 'Character') {
-                    // --- CHARACTER ROW (Character Name, Context, Cont'd, Parenthetical, Dialogue) ---
-                    // Ensure migration is run just in case this item was created pre-v6.4
                     migrateDialogueFields(item); 
                     
-                    // Display Context and Cont'd fields 
                     const contextSelect = `
                         <select onchange="updSeq(${i}, 'context', this.value)">
                             <option value="" ${item.context === '' ? 'selected' : ''}></option>
@@ -510,33 +555,42 @@
                             CONT'D
                         </label>`;
                         
+                    // --- CHARACTER ROW (Character Name, Parenthetical, Context, Cont'd, Dialogue) ---
                     tbody.innerHTML += `<tr class="row-character" draggable="true" data-index="${i}" ondragstart="startDragSequence(event)" ondragover="dragOverSequence(event)" ondrop="dropSequence(event)">
                         <td>
-                            <input list="character-list" class="sequence-input" value="${item.content || ''}" oninput="updSeq(${i}, 'content', this.value)">
+                            <div class="dialog-character-group">
+                                <input list="character-list" class="sequence-input" placeholder="Character Name" value="${item.content || ''}" oninput="updSeq(${i}, 'content', this.value)">
+                                <input class="sequence-input" placeholder="(parenthetical action)" style="border-bottom: none;" value="${item.parenthetical || ''}" oninput="updSeq(${i}, 'parenthetical', this.value)">
+                            </div>
                         </td>
                         <td class="col-dialog-controls">
                             ${contextSelect}
                             ${contdCheckbox}
                         </td>
-                        <td class="col-content">
-                            <input class="sequence-input" placeholder="(parenthetical action)" value="${item.parenthetical || ''}" oninput="updSeq(${i}, 'parenthetical', this.value)">
-                            <textarea rows="3" placeholder="Dialogue..." oninput="updSeq(${i}, 'text', this.value)">${item.text || ''}</textarea>
+                        <td class="col-content-dialog">
+                            <textarea rows="4" placeholder="Dialogue Text..." oninput="updSeq(${i}, 'text', this.value)">${item.text || ''}</textarea>
                         </td>
                         <td class="col-del" onclick="delSeq(${i})">×</td>
                     </tr>`;
                 } else if (item.type === 'Action') {
-                    // Action items use the old format (Style/Type for things like TITLE CARD, and Content for text)
+                    // Action rows: Label, Style Dropdown, Content Textarea
                     const styleUpper = (item.style || '').toUpperCase();
-                    if (styleUpper === 'TITLE CARD' || styleUpper === 'INTERTITLE') actionStyleLabel = styleUpper;
+                    let actionStyleLabel = 'ACTION';
                     
-                    // --- ACTION ROW (Fixed Label, Editable Style, Action Text) ---
+                    const styleOptions = ACTION_STYLES.map(opt => 
+                        `<option value="${opt.value}" ${styleUpper === opt.value.toUpperCase() ? 'selected' : ''}>${opt.label}</option>`
+                    ).join('');
+
+                    // --- ACTION ROW ---
                     tbody.innerHTML += `<tr class="row-action" draggable="true" data-index="${i}" ondragstart="startDragSequence(event)" ondragover="dragOverSequence(event)" ondrop="dropSequence(event)">
-                        <td style="color: #7f8c8d; font-size: 0.8em; font-style: italic;">${actionStyleLabel}</td>
+                        <td>${actionStyleLabel}</td>
                         <td>
-                            <input class="sequence-input" placeholder="Action Style (e.g., V.O., TITLE CARD)" value="${item.style || ''}" oninput="updSeq(${i}, 'style', this.value)">
+                            <select class="action-style-select" onchange="updSeq(${i}, 'style', this.value)">
+                                ${styleOptions}
+                            </select>
                         </td>
-                        <td class="col-content">
-                            <textarea rows="2" placeholder="Action between lines..." oninput="updSeq(${i}, 'content', this.value)">${item.content || ''}</textarea>
+                        <td>
+                            <textarea class="action-content-textarea" rows="4" placeholder="Action content..." oninput="updSeq(${i}, 'text', this.value)">${item.text || ''}</textarea>
                         </td>
                         <td class="col-del" onclick="delSeq(${i})">×</td>
                     </tr>`;
@@ -579,22 +633,27 @@
             if (f === 'content' || f === 'text' || f === 'parenthetical' || f === 'context') {
                 item[f] = v;
             } else if (f === 'contd') { 
-                item.contd = v; // Checkbox value is a boolean
+                item.contd = v; 
             }
             
-            // Handle Action fields (retains old naming for backward compatibility with Action type)
+            // Handle Action fields (Note: Action rows use 'text' for content and 'style' for type)
+            else if (f === 'text' && item.type === 'Action') {
+                 item[f] = v;
+            }
             else if (f === 'style' && item.type === 'Action') {
-                item.style = v;
+                 item[f] = v;
+                 // Rerender to potentially update the action label if it was a custom style
+                 renderSequenceTable(cards.find(c => c.id === activeCardId).sequence);
             }
 
             saveData(); 
         }
 
-        function addSequenceItem(type, index = null) { 
+        function addSequenceItem(type, index = null, style = '') { 
             const card = cards.find(c => c.id === activeCardId);
             const newItem = type === 'Character' 
                 ? { type: 'Character', content: '', context: '', contd: false, parenthetical: '', text: '' }
-                : { type: 'Action', content: '', style: '' }; 
+                : { type: 'Action', style: style, text: '' }; 
             
             if (index !== null) {
                 card.sequence.splice(index, 0, newItem);
@@ -655,7 +714,6 @@
                 `;
                 list.appendChild(li);
 
-                // Add drag events for reordering
                 li.addEventListener('dragstart', function() { dragStartIndex = +this.dataset.index; this.style.opacity = '0.4'; });
                 li.addEventListener('dragover', function(e) { e.preventDefault(); });
                 li.addEventListener('dragenter', function() { this.style.backgroundColor = 'rgba(52, 152, 219, 0.1)'; });
@@ -744,41 +802,32 @@
         function downloadFountain() {
             let f = "";
             
-            // Title Card Metadata
             if (scriptMetadata.title || scriptMetadata.author) {
                 f += `Title: ${scriptMetadata.title}\n`;
                 if(scriptMetadata.author) f += `Author: ${scriptMetadata.author}\n\n`;
                 f += "\n\n";
             }
             
-            // Opening Transitions
             scriptMetadata.transitions.forEach(t => f += `${t}\n\n`);
 
-            // Scene Content
             cards.forEach(c => {
                 f += c.header.toUpperCase() + "\n\n";
                 
                 if(c.notes) f += c.notes + "\n\n";
                 
                 if (c.header.toUpperCase().startsWith('MONTAGE')) {
-                    c.montage.forEach(item => {
-                        f += `-- ${item}\n`;
-                    });
+                    c.montage.forEach(item => { f += `-- ${item}\n`; });
                     f += "\n";
                 } else {
                     c.sequence.forEach(s => {
                         if (s.type === 'Character') {
                             f += s.content.toUpperCase();
                             
-                            // NEW: Build parenthetical content from structured fields
                             const inlineElements = [];
                             if (s.context) inlineElements.push(s.context);
                             if (s.contd) inlineElements.push("CONT'D");
                             
-                            // Parenthetical action remains separate below the name line in the rendering process, 
-                            // but in Fountain format, V.O. and CONT'D must be included here in one set of parentheses.
-                            const styleContent = [];
-                            if (s.parenthetical) styleContent.push(s.parenthetical);
+                            const styleContent = s.parenthetical ? s.parenthetical.split(',').map(p => p.trim()).filter(p => p.length > 0) : [];
                             
                             const allParentheticals = [...inlineElements, ...styleContent].join(', ');
                             
@@ -788,11 +837,14 @@
                         } else if (s.type === 'Action') {
                             const styleUpper = (s.style || '').toUpperCase();
                             
-                            if (styleUpper === 'TITLE CARD:' || styleUpper === 'INTERTITLE:') {
+                            if (styleUpper === 'TITLE CARD' || styleUpper === 'INTERTITLE') {
                                 const prefix = styleUpper.startsWith('INTERTITLE') ? 'INTERTITLE' : 'TITLE CARD';
-                                f += `${prefix}: ${s.content}\n\n`; 
+                                f += `${prefix}: ${s.text}\n\n`; 
+                            } else if (styleUpper.includes('FADE') || styleUpper.includes('CUT')) {
+                                // Fountain formatting for transitions
+                                f += `${styleUpper}\n\n`; 
                             } else {
-                                f += s.content + "\n\n";
+                                f += s.text + "\n\n";
                             }
                         }
                     });
@@ -826,7 +878,6 @@
                             scriptMetadata = loadedData.metadata || scriptMetadata; 
                         }
                         
-                        // Data migration logic for JSON load
                         cards.forEach(card => {
                             if (card.dialog && !card.sequence) {
                                 card.sequence = card.dialog.map(d => ({ type: 'Character', content: d.character, text: d.text, context: '', contd: false, parenthetical: '' }));
@@ -834,6 +885,10 @@
                             }
                             card.sequence.forEach(s => {
                                 if (s.type === 'Character') migrateDialogueFields(s);
+                                else if (s.type === 'Action') { 
+                                    if (s.content !== undefined) { s.text = s.content; delete s.content; }
+                                    if (s.style === undefined) { s.style = ''; } 
+                                }
                             });
                             if (!card.location) { card.location = extractLocation(card.header); }
                         });
@@ -848,13 +903,9 @@
                     successMessage = "Imported " + cards.length + " scenes from text/fountain.";
                 }
                 
-                // 1. Save data
                 saveData(); 
-                
-                // 2. Log success
                 if (successMessage) { console.log(successMessage); }
 
-                // 3. Load the first card and switch view
                 if (cards.length > 0) {
                     switchView('editor'); 
                     activeCardId = cards[0].id;
@@ -864,7 +915,6 @@
                     loadEditor(null);
                 }
                 
-                // 4. Clear input element
                 input.value = ''; 
             };
             
@@ -886,11 +936,25 @@
 
             const flushActionBuffer = (isSceneStart) => {
                 if (!currentCard || actionBuffer.length === 0) return;
-                if (currentCard.sequence && currentCard.sequence.length === 0 && !isSceneStart) {
-                    currentCard.notes += (currentCard.notes ? '\n' : '') + actionBuffer.join('\n');
-                } else {
-                    currentCard.sequence.push({ type: 'Action', content: actionBuffer.join('\n'), style: '' }); 
+                
+                // Check if the last line in the buffer is one of the dropdown transitions
+                let style = '';
+                const lastLine = actionBuffer[actionBuffer.length - 1].toUpperCase().trim();
+                const matchedStyle = ACTION_STYLES.find(s => s.value.toUpperCase() === lastLine);
+
+                if (matchedStyle && matchedStyle.value !== '') {
+                    style = matchedStyle.value;
+                    actionBuffer.pop(); // Remove transition from action buffer if it's the only content
                 }
+
+                if (actionBuffer.length > 0 || style !== '') {
+                    currentCard.sequence.push({ 
+                        type: 'Action', 
+                        style: style, 
+                        text: actionBuffer.join('\n') 
+                    }); 
+                }
+                
                 actionBuffer = [];
             };
 
@@ -926,12 +990,9 @@
                 } 
                 
                 else if (transitionRegex.test(trim) && (cards.length === 0 || !currentCard)) {
+                    // Treat transitions before first scene as metadata
                     scriptMetadata.transitions.push(trim);
                 }
-                else if (transitionRegex.test(trim) && currentCard) {
-                    currentCard.tags += (currentCard.tags ? ', ' : '') + trim.replace(/\.$/, '');
-                } 
-                
                 else if (currentCard) {
                     const isMontageBlock = currentCard.header.toUpperCase().startsWith('MONTAGE');
                     const charMatch = trim.match(characterLineRegex); 
@@ -948,15 +1009,14 @@
                         let match;
                         const parentheticalLineRegex = /\(([^)]+)\)/g; 
                         while ((match = parentheticalLineRegex.exec(trim)) !== null) {
-                            const content = match[1].trim().toUpperCase();
+                            const content = match[1].trim();
+                            const upperContent = content.toUpperCase();
                             
-                            // Dedicated Tag Detection
-                            if (content === 'V.O.') context = 'V.O.';
-                            else if (content === 'O.S.') context = 'O.S.';
-                            else if (content === 'CONT\'D') contd = true;
-                            else if (content.length > 0) parentheticals.push(match[1].trim()); // Store original case for parentheticals
+                            if (upperContent === 'V.O.' || upperContent === 'V.O') context = 'V.O.';
+                            else if (upperContent === 'O.S.' || upperContent === 'O.S') context = 'O.S.';
+                            else if (upperContent.includes('CONT\'D')) contd = true;
+                            else if (content.length > 0) parentheticals.push(content);
 
-                            // Remove the matched block to clean the name line
                             charLineWithoutParentheticals = charLineWithoutParentheticals.replace(match[0], '').trim();
                         }
 
@@ -976,15 +1036,14 @@
                     else if (trim.toUpperCase().startsWith('TITLE CARD:') || trim.toUpperCase().startsWith('INTERTITLE:')) {
                         flushActionBuffer(); 
                         const prefix = trim.toUpperCase().startsWith('TITLE CARD:') ? 'TITLE CARD' : 'INTERTITLE';
-                        const content = trim.substring(trim.indexOf(':') + 1).trim();
-                        currentCard.sequence.push({ type: 'Action', content: content, style: prefix });
+                        const text = trim.substring(trim.indexOf(':') + 1).trim();
+                        currentCard.sequence.push({ type: 'Action', text: text, style: prefix });
                     }
-
+                    
                     else if (isMontageBlock && trim.startsWith('--')) {
                         currentCard.montage.push(trim.substring(2).trim());
                     }
                     
-                    // Parenthetical on a subsequent line (now strictly treated as parenthetical direction)
                     else if (trim.startsWith('(') && trim.endsWith(')')) {
                         if (lastItem && lastItem.type === 'Character' && !lastItem.text) {
                             const cleanParenthetical = trim.replace(/[()]/g, '').trim();
@@ -1003,6 +1062,7 @@
                         }
                     }
                     else {
+                        // Standard action line or transition that didn't match the header/tag sections
                         actionBuffer.push(trim);
                     }
                 }
@@ -1029,7 +1089,6 @@
         function generateScript() {
             let html = '';
             
-            // Title Page
             html += `<h1 style="text-align: center; margin-top: 200px; font-size: 36pt;">${scriptMetadata.title || 'UNTITLED SCREENPLAY'}</h1>`;
             if (scriptMetadata.author) {
                 html += `<p style="text-align: center; margin-top: 100px;">Written by<br><b>${scriptMetadata.author}</b></p><div style="page-break-after: always;"></div>`;
@@ -1037,12 +1096,10 @@
                 html += `<div style="page-break-after: always;"></div>`;
             }
             
-            // Opening Transitions
             scriptMetadata.transitions.forEach(t => {
                 html += `<div class="sc-header" style="text-align: right; text-decoration: none;">${t}</div>`;
             });
             
-            // Content
             cards.forEach(c => {
                 html += `<div class="sc-header">${c.header}</div>`;
 
@@ -1059,43 +1116,30 @@
                 } else {
                     c.sequence.forEach(s => {
                         if (s.type === 'Character') {
-                            // NEW: Build inline and parenthetical content from structured fields
                             const inlineElements = []; 
                             const standardParenthetical = [];
 
-                            if (s.context) {
-                                // V.O. / O.S. are inline elements
-                                inlineElements.push(s.context);
-                            } 
-                            
-                            // Get all the parenthetical content, separated by comma
+                            if (s.context) { inlineElements.push(s.context); } 
+                            if (s.contd) { inlineElements.push("CONT'D"); }
+
                             const rawParenthetical = s.parenthetical ? s.parenthetical.split(',').map(p => p.trim()) : [];
-
-                            // Check for CONT'D first, as it must be last in the inline tag list
-                            if (s.contd) {
-                                inlineElements.push("CONT'D");
-                            }
-
-                            // Any remaining text goes into the standard parenthetical block
                             rawParenthetical.forEach(p => {
                                 if (p.length > 0) {
                                     standardParenthetical.push(`(${p})`);
                                 }
                             });
 
-
-                            // --- Character Name Line Assembly (Centered via Flex) ---
+                            // --- Character Name Line Assembly ---
                             html += `<div class="sc-character-block">`;
                             html += `<span class="sc-character">${s.content}</span>`;
                             
-                            // Join inline elements (V.O., O.S., CONT'D) and render with parentheses
                             if (inlineElements.length > 0) {
                                 const renderedInline = inlineElements.map(p => `(${p})`).join(' ');
                                 html += `<span class="sc-parenthetical-inline">${renderedInline}</span>`;
                             }
                             html += `</div>`; 
 
-                            // --- Standard Parenthetical Line Assembly (Below Name) ---
+                            // --- Standard Parenthetical Line Assembly ---
                             if (standardParenthetical.length > 0) {
                                 html += `<div class="sc-parenthetical-line">${standardParenthetical.join(' ')}</div>`;
                             }
@@ -1104,15 +1148,21 @@
                             html += `<div class="sc-dialog">${s.text}</div>`;
                         } else if (s.type === 'Action') {
                             const styleUpper = (s.style || '').toUpperCase();
+                            
                             if (styleUpper === 'TITLE CARD' || styleUpper === 'INTERTITLE') {
-                                html += `<div class="sc-intertitle">${s.content}</div>`;
+                                html += `<div class="sc-intertitle">${s.text}</div>`;
+                            } else if (styleUpper.includes('FADE') || styleUpper.includes('CUT') || styleUpper.includes('DISSOLVE')) {
+                                // Transition is rendered separately from the action content, at the end of the block
+                                html += `<div class="sc-action-inline">${s.text}</div>`;
+                                html += `<div class="sc-header" style="text-align: right; text-decoration: none; margin-top: 1em;">${styleUpper}.</div>`;
                             } else {
-                                html += `<div class="sc-action-inline">${s.content}</div>`;
+                                html += `<div class="sc-action-inline">${s.text}</div>`;
                             }
                         }
                     });
                 }
                 
+                // Keep the final tags handling as a safety net for scene end
                 const finalTags = c.tags.split(',').filter(t => t.trim().toUpperCase().includes('FADE OUT') || t.trim().toUpperCase().includes('CUT TO') || t.trim().toUpperCase().includes('DISSOLVE TO'));
                 finalTags.forEach(t => html += `<div class="sc-header" style="text-align: right; text-decoration: none; margin-top: 2em;">${t.trim().toUpperCase()}.</div>`);
 
