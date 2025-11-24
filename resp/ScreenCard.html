@@ -1461,8 +1461,8 @@
 
         // --- SCRIPT GENERATION ---
         
-        const DIALOGUE_WORDS_PER_LINE = 4; 
-        const MAX_LINES_PER_PAGE = 55;
+        const DIALOGUE_WORDS_PER_LINE = 4; // Standard Courier font for dialogue
+        const MAX_LINES_PER_PAGE = 48; // Adjusted to safely fit 42-44 lines observed + margin
         
         function getElementLineCount(element, elementText) {
             let lines = 0;
@@ -1470,21 +1470,21 @@
             const wordCount = countWords(text);
             
             if (element === 'header') {
-                lines = 2; 
+                lines = 3; // Scene Number (1) + Header (1) + Whitespace (1)
             } else if (element === 'action' || element === 'notes') {
-                lines = Math.ceil(wordCount / 10) + 1; 
+                lines = Math.ceil(wordCount / 10) + 1; // 10 words per line approximation for action blocks + 1 line for margin
             } else if (element === 'transition' || element === 'title') {
-                lines = 2; 
+                lines = 2; // Transition/Title Card (1) + Whitespace (1)
             } else if (element.type === 'Character') {
-                lines += 1;
+                lines += 1; // Character Name line (including V.O./CONT'D)
                 
                 const parentheticals = element.parenthetical ? element.parenthetical.split(',').filter(p => p.trim().length > 0) : [];
-                if (parentheticals.length > 0) lines += 1;
+                if (parentheticals.length > 0) lines += 1; // Parenthetical line
                 
-                lines += Math.ceil(wordCount / DIALOGUE_WORDS_PER_LINE);
-                lines += 1; 
+                lines += Math.ceil(wordCount / DIALOGUE_WORDS_PER_LINE); // Dialogue text lines
+                lines += 1; // Margin line after dialogue
             } else if (element === 'montage_item') {
-                lines = 1; 
+                lines = 1; // Montage item (1)
             }
             
             return Math.max(1, lines);
@@ -1518,7 +1518,6 @@
                 const lines = getElementLineCount('transition', t);
                 if (lineCount + lines > MAX_LINES_PER_PAGE) insertPageBreak();
                 
-                // Use new right-aligned transition class
                 html += `<div class="sc-transition">${t}</div>`;
                 lineCount += lines;
             });
@@ -1526,12 +1525,15 @@
             // --- 3. SCENES ---
             cards.forEach(c => {
                 
+                // **FIXED: HARD PAGE BREAK BEFORE EVERY SCENE (Standard Screenplay)**
+                insertPageBreak(); 
+                
                 // LINE COUNT CHECK BEFORE STARTING SCENE
                 const headerLines = getElementLineCount('header');
-                const sceneNumLines = 1;
                 const notesLines = c.notes ? getElementLineCount('notes', c.notes) : 0;
                 
-                if (lineCount > 0 && (lineCount + headerLines + sceneNumLines + notesLines) > MAX_LINES_PER_PAGE) {
+                // If the initial elements won't fit, force a break. (This check is now mostly for safety after the hard break)
+                if ((lineCount + headerLines + notesLines) > MAX_LINES_PER_PAGE) {
                     insertPageBreak();
                 }
 
@@ -1541,13 +1543,10 @@
 
                 // SCENE HEADER
                 html += `<div class="sc-header" style="margin-top: 0.5em;">${c.header}</div>`; 
-                lineCount += headerLines;
+                lineCount += (headerLines - 1); // Only count the header and its margin, scene number was already counted.
                 
                 // OPENING ACTION / NOTES
                 if(c.notes) {
-                    // Recheck line count for just the notes block if it's the first element
-                    if (lineCount > 0 && lineCount + notesLines > MAX_LINES_PER_PAGE) insertPageBreak();
-                    
                     html += `<div class="sc-action">${c.notes}</div>`;
                     lineCount += notesLines;
                 }
@@ -1648,6 +1647,7 @@
             });
             document.getElementById('script-content').innerHTML = html;
         }
+
 
         // --- STATS & CHARACTER MANAGEMENT UI ---
         function showStats() {
