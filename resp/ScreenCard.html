@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SceneCard Writer v6.16 (Fixed Pitch)</title>
+    <title>SceneCard Writer v6.17 (Fixed Pitch)</title>
     <style>
         /* --- THEME VARIABLES --- */
         :root { 
@@ -206,7 +206,6 @@
             /* Enforce Fixed Pitch for Print Preview */
             font-family: 'Courier Prime', 'Courier New', monospace; 
             font-size: 12pt; 
-            /* Line height removed from content container to prevent conflicts */
         }
 
         /* Page container to apply print margins/breaks */
@@ -1490,15 +1489,11 @@
         // Helper to pad and truncate strings
         function padString(text, col, width) {
             let s = text || '';
-            s = s.substring(0, width); // Truncate if necessary
+            s = s.substring(0, width); 
             
-            // Calculate padding needed to reach starting column 'col'
-            let currentLength = s.length;
-            let paddingNeeded = col - currentLength;
-
-            if (paddingNeeded < 0) paddingNeeded = 0;
+            let paddingNeeded = col;
             
-            // Use non-breaking spaces for Courier fixed pitch alignment
+            // Pad the start of the string
             let pad = "&nbsp;".repeat(paddingNeeded);
             return pad + s;
         }
@@ -1595,7 +1590,7 @@
 
         // 2. Action/Notes Block
         function formatAction(text) {
-            // Action starts at column 0, max width CHAR_WIDTH
+            // Action starts at column 0, max width CHAR_WIDTH (60)
             const wrappedLines = wordWrap(text, CHAR_WIDTH);
             const paddedLines = wrappedLines.map(line => padString(line, 0, CHAR_WIDTH));
             paddedLines.push(padString("", 0, 0)); // Blank line after block
@@ -1609,7 +1604,7 @@
             
             // Right-align by padding to CHAR_WIDTH - length of text
             const transitionText = text.toUpperCase() + '.';
-            const rightPad = CHAR_WIDTH - transitionText.length;
+            const rightPad = Math.max(0, CHAR_WIDTH - transitionText.length);
             lines.push(padString(transitionText, rightPad, CHAR_WIDTH)); 
             
             lines.push(padString("", 0, 0)); // Blank line after
@@ -1622,27 +1617,28 @@
             const charName = s.content.toUpperCase();
             
             // Character Name Line
-            // Find the starting column to center the name over the dialogue block
+            // Centering Name: Start column is DIALOGUE_COL (18) + half of remaining width
             const namePad = Math.max(0, DIALOGUE_COL + Math.floor((DIALOGUE_WIDTH - charName.length) / 2));
-            let charLine = padString(charName, namePad, CHAR_WIDTH);
+            let charLine = charName;
 
             // Add inline elements (V.O./CONT'D)
             let inlineElements = [];
             if (s.context) inlineElements.push(s.context);
             if (s.contd) inlineElements.push("CONT'D");
             if (inlineElements.length > 0) {
-                // Append the inline tag directly to the end of the padded character name line
                 charLine += " " + inlineElements.map(p => `(${p})`).join(' ');
             }
-            lines.push(charLine);
+            lines.push(padString(charLine, namePad, CHAR_WIDTH));
 
             // Parenthetical Line (e.g., (beat))
             const rawParentheticals = s.parenthetical ? s.parenthetical.split(',').map(p => p.trim()).filter(p => p.length > 0) : [];
             if (rawParentheticals.length > 0) {
+                // Parenthetical starts at column 26
                 lines.push(padString(`(${rawParentheticals.join(' ')})`, PARENTHETICAL_COL, CHAR_WIDTH));
             }
 
             // Dialogue Text Lines
+            // Dialogue starts at column 18, max width 38
             const wrappedDialogue = wordWrap(s.text, DIALOGUE_WIDTH);
             wrappedDialogue.forEach(line => {
                 lines.push(padString(line, DIALOGUE_COL, CHAR_WIDTH));
@@ -1663,7 +1659,11 @@
         function formatTitleCard(text) {
             const lines = [];
             lines.push(padString("", 0, 0)); // Blank line
-            lines.push(padString(text.toUpperCase(), Math.floor((CHAR_WIDTH - text.length) / 2), CHAR_WIDTH));
+            
+            const centeredText = text.toUpperCase();
+            const centerPad = Math.floor((CHAR_WIDTH - centeredText.length) / 2);
+            lines.push(padString(centeredText, centerPad, CHAR_WIDTH));
+            
             lines.push(padString("", 0, 0)); // Blank line
             return lines;
         }
@@ -1704,6 +1704,7 @@
                 // 3b. OPENING ACTION / NOTES
                 if(c.notes) {
                     const actionLines = formatAction(c.notes);
+                    // Action lines should be 'sc-action'
                     scriptHtml += buffer.insert(actionLines, 'sc-action');
                 }
 
